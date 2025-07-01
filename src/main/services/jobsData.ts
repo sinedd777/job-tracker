@@ -1,5 +1,6 @@
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import db from '../../database';
 
 interface JobData {
@@ -14,10 +15,36 @@ interface JobData {
 }
 
 export class JobsDataService {
+  /**
+   * Reads the raw JSON file produced by the scraper (LinkedIn schema) and maps
+   * each record to the internal {@link JobData} shape expected by the local
+   * database.  Any fields that are missing in the source will be defaulted so
+   * that the "INSERT OR REPLACE" statement always receives all named
+   * parameters.
+   */
   private async readJobsData(): Promise<JobData[]> {
     try {
       const data = await readFile(join(process.cwd(), 'jobs-data.json'), 'utf-8');
-      return JSON.parse(data) as JobData[];
+      const rawJobs = JSON.parse(data) as any[];
+
+      const mapped = rawJobs.map((j) => {
+        const salaryRange = j.base_salary?.min_amount && j.base_salary?.max_amount
+          ? `${j.base_salary.min_amount}-${j.base_salary.max_amount} ${j.base_salary.currency || ''}`.trim()
+          : undefined;
+
+        const job: JobData = {
+          id: j.job_posting_id || j.id || randomUUID(),
+          title: j.job_title || j.title || 'Untitled',
+          company: j.company_name || j.company || 'Unknown',
+          status: 'APPLIED',
+          appliedDate: j.job_posted_date || new Date().toISOString(),
+          location: j.job_location || j.location || '',
+          salary: salaryRange,
+        };
+        return job;
+      });
+
+      return mapped;
     } catch (error) {
       console.error('Error reading jobs data:', error);
       return [];
