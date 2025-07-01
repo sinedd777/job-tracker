@@ -1,0 +1,5 @@
+# jobs-data.json
+/node_modules
+/dist
+/release
+out
