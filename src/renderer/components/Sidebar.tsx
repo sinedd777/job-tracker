@@ -20,6 +20,22 @@ const Sidebar: React.FC = () => {
         >
           <span className="ml-2">Dashboard</span>
         </Link>
+        <Link
+          to="/resume"
+          className={`flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+            isActive('/resume') ? 'bg-gray-100 dark:bg-gray-700' : ''
+          }`}
+        >
+          <span className="ml-2">Resumes</span>
+        </Link>
+        <Link
+          to="/mail"
+          className={`flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+            isActive('/mail') ? 'bg-gray-100 dark:bg-gray-700' : ''
+          }`}
+        >
+          <span className="ml-2">Cold Emails</span>
+        </Link>
       </nav>
     </aside>
   );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, FileUser, Mail } from 'lucide-react';
 
 interface Job {
   id: string;
@@ -108,9 +108,9 @@ const DashboardPage: React.FC = () => {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Process</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -124,9 +124,6 @@ const DashboardPage: React.FC = () => {
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {job.location}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(job.appliedDate).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3">
                   <ProcessTracker status={job.status} />
@@ -145,6 +142,14 @@ const DashboardPage: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                </td>
+                <td className="px-4 py-3 flex items-center gap-2">
+                  <Link to={`/resume/${job.id}`} title="Resume Details" className="text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400">
+                    <FileUser className="w-5 h-5" />
+                  </Link>
+                  <Link to={`/mail/${job.id}`} title="Email Details" className="text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400">
+                    <Mail className="w-5 h-5" />
+                  </Link>
                 </td>
               </tr>
             ))}
