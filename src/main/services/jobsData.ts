@@ -11,10 +11,21 @@ interface JobData {
   appliedDate: string;
   location: string;
   salary?: string;
+  summary?: string;
   lastSync?: string;
 }
 
 export class JobsDataService {
+  constructor() {
+    // Perform an initial synchronization so that the database is always
+    // up-to-date with the latest scraped data (including new columns like summary).
+    // This runs in the background and will finish before any IPC calls that need
+    // the data because Electron will import this file during startup.
+    this.syncJobs().catch((err) => {
+      console.error('Initial job sync failed', err);
+    });
+  }
+
   /**
    * Reads the raw JSON file produced by the scraper (LinkedIn schema) and maps
    * each record to the internal {@link JobData} shape expected by the local
@@ -40,6 +51,7 @@ export class JobsDataService {
           appliedDate: j.job_posted_date || new Date().toISOString(),
           location: j.job_location || j.location || '',
           salary: salaryRange,
+          summary: j.job_summary || j.summary || '',
         };
         return job;
       });
@@ -57,9 +69,9 @@ export class JobsDataService {
 
     const insertJob = db.prepare(`
       INSERT OR REPLACE INTO jobs (
-        id, title, company, status, applied_date, location, salary, last_sync
+        id, title, company, status, applied_date, location, salary, summary, last_sync
       ) VALUES (
-        @id, @title, @company, @status, @appliedDate, @location, @salary, @lastSync
+        @id, @title, @company, @status, @appliedDate, @location, @salary, @summary, @lastSync
       )
     `);
 
@@ -85,6 +97,7 @@ export class JobsDataService {
       appliedDate: job.applied_date,
       location: job.location,
       salary: job.salary,
+      summary: job.summary,
       lastSync: job.last_sync,
     }));
   }
@@ -101,6 +114,7 @@ export class JobsDataService {
       appliedDate: job.applied_date,
       location: job.location,
       salary: job.salary,
+      summary: job.summary,
       lastSync: job.last_sync,
     };
   }

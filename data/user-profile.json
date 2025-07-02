@@ -1,0 +1,228 @@
+{
+    "personalInfo": {
+      "name": "Gaurang",
+      "email": "gnolas35@asu.edu",
+      "phone": "+1 602-312-3249",
+      "website": "https://portfolio-sinedd777s-projects.vercel.app/"
+    },
+    "experience": [
+      {
+        "position": "Research and Development Intern",
+        "company": "Axway",
+        "location": "Scottsdale, Arizona",
+        "startDate": "June 2024",
+        "endDate": "August 2024",
+        "responsibilities": [
+          "Reduced tech debt by 80% across 3 React microservices by refactoring components into modular, WCAG-compliant patterns using ReactJS and SonarSource",
+          "Enforced consistent code quality by setting up Husky pre-commit hooks with Lint-Staged to auto-run linters and formatters on staged files, preventing bad commits",
+          "Removed Moment.js usage across multiple projects to reduce bundle size, replacing it with native Date objects and lightweight utilities for parsing and formatting"
+        ]
+      },
+      {
+        "position": "Software Developer",
+        "company": "LetsTransport",
+        "location": "India",
+        "startDate": "December 2022",
+        "endDate": "August 2023",
+        "responsibilities": [
+          "Built real-time auction UIs using ReactJS, TypeScript, Redux, TanStack Query, Material UI, and WebSockets, enabling 250K+ drivers across 30+ cities to view and match with jobs live on web and mobile",
+          "Led a 5-member team to ship Bidding, MIS, and POD dashboards using React, Formik, and React Hook Form, cutting customer response time by 24 hours and doubling driver reimbursement speed",
+          "Migrated the Partner mobile app from React Native CLI to Expo, resolving native module issues and integrating EAS Build to streamline authentication and push notification flows",
+          "Maintained high test coverage across critical frontend modules using React Testing Library and Vitest, ensuring reliable, regression-free feature rollouts",
+          "Built a reusable React hook to persist filters in URL state, saving ops teams 10+ minutes per workflow and improving developer collaboration during issue triaging and debugging"
+        ]
+      },
+      {
+        "position": "Software Developer",
+        "company": "Oracle",
+        "location": "India",
+        "startDate": "June 2019",
+        "endDate": "September 2022",
+        "responsibilities": [
+          "Rewrote core parts of the Document module using Spring Boot, AngularJS, ag-Grid, and Apache Lucene, adding filters and improving search; this sped up UI performance by 40% and contributed $100K+ in yearly revenue",
+          "Created a real-time banner editing tool using AngularJS, JavaScript (ES6), Java, and Canvas API, giving admin users the ability to manage content live with full CRUD support",
+          "Migrated legacy UIs from JSP and AngularJS to OJET v13 using Knockout for two-way binding and Preact for fast rendering; rewrote uploader logic to support chunked uploads and lazy loading",
+          "Built and owned REST APIs for two microservices using Java, Spring MVC, ReactJS, and Docker, working closely with testers to improve performance and reduce turnaround time",
+          "Set up a secure secrets management system using Vault, Terraform, Ansible, Docker, and Consul; removed plaintext credentials and supported FedRAMP readiness with high-availability setup",
+          "Developed a TDD-based test automation suite using Cucumber, Selenium, Java, and Jenkins"
+        ]
+      }
+    ],
+    "education": [
+      {
+        "institution": "Arizona State University",
+        "location": "Tempe, AZ",
+        "degree": "Master's Degree in Computer Science",
+        "graduationDate": "May 2025"
+      },
+      {
+        "institution": "VIT University",
+        "location": "India",
+        "degree": "B.Tech Computer Science and Engineering",
+        "graduationDate": "June 2019"
+      }
+    ],
+    "projects": [
+      {
+        "title": "Image Clustering, Indexing & Relevance Feedback",
+        "description": "Advanced image analysis system implementing DBSCAN clustering, LSH-based approximate nearest neighbor search, and interactive relevance feedback on the Caltech101 dataset. Developed a complete pipeline including dimensionality estimation, multi-model classification (k-NN, Decision Trees, PageRank), and real-time feedback integration using SVM and probabilistic models for improved retrieval accuracy.",
+        "technologies": [
+          "Python",
+          "scikit-learn",
+          "NumPy",
+          "Machine Learning",
+          "Computer Vision",
+          "Dimensionality Reduction"
+        ]
+      },
+      {
+        "title": "Image Feature Modeling & Latent Semantic Analysis",
+        "description": "Advanced multimedia analysis system for image retrieval using deep learning and vector-based feature models. Implemented feature extraction (ResNet50, HOG, Color Moments), similarity search, and latent semantic analysis (SVD, NNMF, LDA) on the Caltech101 dataset. Developed a flexible pipeline supporting multiple feature spaces and similarity metrics.",
+        "technologies": [
+          "Python",
+          "PyTorch",
+          "scikit-learn",
+          "NumPy",
+          "Computer Vision",
+          "Dimensionality Reduction"
+        ]
+      },
+      {
+        "title": "Content-Based Image Retrieval System",
+        "description": "A sophisticated image search system that finds visually similar images using multiple feature extraction techniques (Color Moments, HOG, ResNet50). Implements efficient similarity search with a MySQL backend and provides a terminal-based interface for querying and retrieving top-k similar images.",
+        "technologies": [
+          "Python",
+          "OpenCV",
+          "PyTorch",
+          "MySQL",
+          "Computer Vision",
+          "Feature Engineering"
+        ]
+      },
+      {
+        "title": "Secure Werewolves Game - Security Refactor",
+        "description": "Redesigned the communication architecture of a multiplayer UNIX-based Werewolves game to mitigate side-channel attacks, race conditions, and covert inference channels. Implemented secure message passing, non-blocking I/O, and RPC mechanisms while addressing critical vulnerabilities.",
+        "technologies": [
+          "Linux Systems",
+          "Python",
+          "Bash",
+          "Concurrency",
+          "IPC"
+        ]
+      },
+      {
+        "title": "MiningVis - Bitcoin Mining Dashboard",
+        "description": "An interactive dashboard that visualizes the dynamics of Bitcoin mining through data-driven insights and compelling visualizations.",
+        "technologies": [
+          "HTML5",
+          "D3.js",
+          "Bootstrap"
+        ]
+      },
+      {
+        "title": "Squirrel Encounters Visualization",
+        "description": "Interactive visualization of squirrel encounters at NYC Central Park, showcasing data patterns and behaviors.",
+        "technologies": [
+          "HTML5",
+          "D3.js"
+        ]
+      },
+      {
+        "title": "Character Flow Visualizer",
+        "description": "An interactive D3.js-based tool that transforms text into dynamic treemap and Sankey diagrams, revealing character patterns and relationships.",
+        "technologies": [
+          "HTML5",
+          "D3.js"
+        ]
+      },
+      {
+        "title": "VitalTrack - Mobile Health Monitor",
+        "description": "A sensor-driven Android application that tracks heart rate, respiratory rate, and symptoms using the phone's camera and accelerometer. Features local data storage with RoomDB and a clean, intuitive interface for health monitoring.",
+        "technologies": [
+          "Kotlin",
+          "Android",
+          "RoomDB",
+          "CameraX",
+          "Accelerometer"
+        ]
+      },
+      {
+        "title": "Cryptoverse - Crypto Dashboard",
+        "description": "A dynamic cryptocurrency dashboard providing real-time market data, price tracking for 100+ coins, and the latest crypto news. Features interactive charts, detailed coin information, and a clean, responsive interface.",
+        "technologies": [
+          "React",
+          "Redux Toolkit",
+          "Ant Design",
+          "Chart.js",
+          "REST APIs"
+        ]
+      },
+      {
+        "title": "Exercise Finder App",
+        "description": "A modern web application that helps users discover and learn exercises based on muscle groups, equipment, or exercise names. Features real-time search, video integration, and intelligent exercise recommendations with a clean, responsive interface.",
+        "technologies": [
+          "React 18",
+          "Material-UI",
+          "React Router",
+          "REST APIs"
+        ]
+      },
+      {
+        "title": "Elastic Face Recognition Application",
+        "description": "Designed a scalable pipeline using FFmpeg, OpenCV, and ResNet; implemented autoscaling with AWS EC2, SQS, and S3 to handle 100+ concurrent video jobs.",
+        "technologies": [
+          "Python",
+          "OpenCV",
+          "ResNet",
+          "AWS EC2",
+          "SQS",
+          "S3"
+        ]
+      },
+      {
+        "title": "Mergedeck",
+        "description": "Built a full-stack B2B marketplace with Next.js, Tailwind, Supabase, and Stack Auth; developed REST APIs, enforced RLS policies, and handled server-side logic for onboarding, dynamic forms, and role-based access.",
+        "technologies": [
+          "Next.js",
+          "Tailwind CSS",
+          "Supabase",
+          "TypeScript",
+          "PostgreSQL"
+        ]
+      },
+      {
+        "title": "TicTacToe AI & Multiplayer",
+        "description": "A feature-rich Tic-Tac-Toe game with AI opponent (Min-Max and Alpha-Beta Pruning algorithms) and multiplayer modes. Includes local 2-player, single device play, and Bluetooth-connected multiplayer across devices. Features difficulty levels and persistent game data storage using RoomDB.",
+        "technologies": [
+          "Android",
+          "Kotlin",
+          "RoomDB",
+          "Bluetooth",
+          "AI Algorithms"
+        ]
+      },
+      {
+        "title": "Resume Reviewer",
+        "description": "Collaborative resume annotation tool that allows users to upload, view, and annotate PDF resumes in real-time. Supports in-browser PDF viewing with PDF.js and enables team-based resume review with comment functionality.",
+        "technologies": [
+          "Next.js",
+          "Supabase",
+          "Tailwind CSS",
+          "react-pdf",
+          "PDF.js"
+        ]
+      },
+      {
+        "title": "Calorie Tracker",
+        "description": "Full-stack nutrition tracking application with JWT authentication and role-based dashboards. Users can log meals, track daily calorie intake against customizable limits, and view progress. Includes admin features for user management, meal entry management, and detailed reporting with weekly averages and insights.",
+        "technologies": [
+          "React.js",
+          "Material UI",
+          "Node.js",
+          "Express",
+          "MongoDB",
+          "JWT"
+        ]
+      }
+    ]
+  }

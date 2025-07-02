@@ -14,4 +14,15 @@ Object.values(SCHEMA).forEach((sql) => {
   db.exec(sql);
 });
 
+// Ensure new columns exist for older database versions
+try {
+  const columns = db.prepare(`PRAGMA table_info(jobs)`).all() as any[];
+  const hasSummary = columns.some((c) => c.name === 'summary');
+  if (!hasSummary) {
+    db.exec(`ALTER TABLE jobs ADD COLUMN summary TEXT`);
+  }
+} catch (err) {
+  console.error('Failed to migrate jobs table schema', err);
+}
+
 export default db; 

@@ -4,6 +4,7 @@ import JobDetailPage from './pages/JobDetailPage';
 import Layout from './components/Layout';
 import ResumePage from './pages/ResumePage';
 import MailPage from './pages/MailPage';
+import EmailPage from './pages/EmailPage';
 
 const App = () => {
   return (
@@ -15,6 +16,8 @@ const App = () => {
         <Route path="/resume/:id" element={<ResumePage />} />
         <Route path="/mail" element={<MailPage />} />
         <Route path="/mail/:id" element={<MailPage />} />
+        <Route path="/email" element={<EmailPage />} />
+        <Route path="/email/:id" element={<EmailPage />} />
       </Routes>
     </Layout>
   );

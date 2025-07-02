@@ -83,11 +83,11 @@ ipcMain.handle('sync-jobs', () => {
 // App operations
 let isDarkMode = false;
 
-ipcMain.handle('get-dark-mode', () => {
+ipcMain.handle('get-dark-mode', (): boolean => {
   return isDarkMode;
 });
 
-ipcMain.handle('toggle-dark-mode', () => {
+ipcMain.handle('toggle-dark-mode', (): boolean => {
   isDarkMode = !isDarkMode;
   return isDarkMode;
 });
@@ -146,5 +146,113 @@ ipcMain.handle('save-and-open-resume', (_event, jobId: string, content: string) 
     shell.openExternal(overleafUrl);
   } catch (error) {
     console.error('Failed to save or open resume:', error);
+  }
+});
+
+// Generate cold email using OpenAI
+ipcMain.handle('generate-cold-email', async (_event, args: { jobId: string; model?: string }) => {
+  const { jobId, model = 'gpt-4o' } = args;
+
+  try {
+    // 1. Fetch job info
+    const job = jobsDataService.getJob(jobId);
+    if (!job) {
+      throw new Error(`Job with id ${jobId} not found`);
+    }
+
+    // 2. Load user profile from static JSON
+    const userProfilePath = join(process.cwd(), 'data', 'user-profile.json');
+    const userProfileRaw = readFileSync(userProfilePath, 'utf-8');
+    const userProfile = JSON.parse(userProfileRaw);
+
+    // 3. Build strict prompt for GPT-4o
+    const recruiterName = (job as any).recruiter || '';
+
+    const educationSummary = (userProfile.education || [])
+      .map((e: any) => `${e.degree} - ${e.institution}`)
+      .join('; ');
+
+    const projectSummary = (userProfile.projects || [])
+      .slice(0, 3)
+      .map((p: any) => p.title)
+      .join(', ');
+
+    const experienceSummary = (userProfile.experience || [])
+      .slice(0, 2)
+      .map((exp: any) => `${exp.position} at ${exp.company}`)
+      .join('; ');
+
+    const skillsSummary = (userProfile.skills || userProfile.keySkills || [])
+      .slice(0, 10)
+      .join(', ');
+
+    const jobDescriptionSummary = (job as any).description || (job as any).summary || '';
+
+    const prompt = `You are a cold email writing assistant trained to write concise, human-sounding, and highly personalized outreach emails for job seekers. Your tone should be warm, curious, and professionally confident — not salesy or robotic.\n\n` +
+      `✦ GOAL:\n` +
+      `Write a cold email for a job opportunity that highlights the user's background and demonstrates how they can add value to this specific role.\n\n` +
+      `✦ STRUCTURE:\n` +
+      `\t1. Friendly greeting and short personal context (1-2 lines)\n` +
+      `\t2. Why I'm reaching out / what excites me about the company or team (1-2 lines)\n` +
+      `\t3. Why I think I'd be a strong fit (based on my education, projects, past experience)\n` +
+      `\t4. Soft close (inviting connection or reply) + signature\n\n` +
+      `✦ RULES:\n` +
+      `\t• Do NOT repeat the job description.\n` +
+      `\t• Do NOT list my resume — you may hint at it.\n` +
+      `\t• Avoid phrases like "I am writing to..." or "I would like to express interest..."\n` +
+      `\t• Keep it under 100 words.\n` +
+      `\t• Use real, project-based or skill-based evidence from my background.\n` +
+      `\t• Make it feel like it was written by a thoughtful human, not AI.\n\n` +
+      `✦ CONTEXT:\n` +
+      `Job Title: ${job.title}\n` +
+      `Company: ${job.company}\n` +
+      `Job Description Summary: ${jobDescriptionSummary}\n` +
+      `Recruiter Name (if any): ${recruiterName}\n` +
+      `My Education: ${educationSummary}\n` +
+      `My Projects: ${projectSummary}\n` +
+      `My Experience: ${experienceSummary}\n` +
+      `My Skills: ${skillsSummary}\n\n` +
+      `✦ OUTPUT:\n` +
+      `Return only the final cold email in plain text. No explanations, no bullet points, no notes. Personal, professional, and specific.`;
+
+    // 4. Call OpenAI Chat Completion
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.warn('OPENAI_API_KEY not set – returning prompt for debugging');
+      return prompt; // Fallback so UI still gets content
+    }
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: 'You are an expert career coach and professional copywriter.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} ${errorBody}`);
+    }
+
+    const data = (await response.json()) as any;
+    const emailContent: string | undefined = data.choices?.[0]?.message?.content?.trim();
+
+    if (!emailContent) {
+      throw new Error('No email content returned from OpenAI');
+    }
+
+    return emailContent;
+  } catch (err) {
+    console.error('Failed to generate cold email:', err);
+    throw err;
   }
 }); 

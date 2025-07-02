@@ -1,4 +1,4 @@
-export interface IJobAPI {
+export interface IElectronAPI {
   // Job operations
   getJobs: () => Promise<any[]>;
   updateJob: (jobId: string, data: any) => Promise<void>;
@@ -20,15 +20,18 @@ export interface IJobAPI {
   
   // App operations
   getDarkMode: () => Promise<boolean>;
-  toggleDarkMode: () => Promise<void>;
+  toggleDarkMode: () => Promise<boolean>;
 
   // Resume operations
   readResumeTemplate: () => Promise<string>;
   saveAndOpenResume: (jobId: string, content: string) => Promise<void>;
+
+  // Email operations
+  generateColdEmail: (jobId: string, model?: string) => Promise<string>;
 }
 
 declare global {
   interface Window {
-    api: IJobAPI;
+    api: IElectronAPI;
   }
 } 

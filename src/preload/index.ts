@@ -31,5 +31,9 @@ contextBridge.exposeInMainWorld(
     // Resume operations
     readResumeTemplate: () => ipcRenderer.invoke('read-resume-template'),
     saveAndOpenResume: (jobId: string, content: string) => ipcRenderer.invoke('save-and-open-resume', jobId, content),
+
+    // Email operations
+    generateColdEmail: (jobId: string, model?: string) => 
+      ipcRenderer.invoke('generate-cold-email', { jobId, model }),
   }
 ); 

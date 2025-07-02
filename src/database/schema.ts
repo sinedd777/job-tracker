@@ -9,6 +9,7 @@ export const SCHEMA = {
       deadline TEXT,
       location TEXT,
       salary TEXT,
+      summary TEXT,
       last_sync TEXT NOT NULL
     )
   `,

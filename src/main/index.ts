@@ -1,6 +1,12 @@
+// @ts-ignore -- types not exposed correctly by dotenv exports in bundler
+import * as dotenv from 'dotenv';
 import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
 import './ipc';
+
+// Load environment variables for main process. Prioritise .env.local if present.
+dotenv.config({ path: join(process.cwd(), '.env.local') });
+dotenv.config();
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 try {
