@@ -27,5 +27,9 @@ contextBridge.exposeInMainWorld(
     // App operations
     getDarkMode: () => ipcRenderer.invoke('get-dark-mode'),
     toggleDarkMode: () => ipcRenderer.invoke('toggle-dark-mode'),
+
+    // Resume operations
+    readResumeTemplate: () => ipcRenderer.invoke('read-resume-template'),
+    saveAndOpenResume: (jobId: string, content: string) => ipcRenderer.invoke('save-and-open-resume', jobId, content),
   }
 ); 

@@ -21,6 +21,10 @@ export interface IJobAPI {
   // App operations
   getDarkMode: () => Promise<boolean>;
   toggleDarkMode: () => Promise<void>;
+
+  // Resume operations
+  readResumeTemplate: () => Promise<string>;
+  saveAndOpenResume: (jobId: string, content: string) => Promise<void>;
 }
 
 declare global {

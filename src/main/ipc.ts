@@ -1,6 +1,10 @@
 import { ipcMain } from 'electron';
 import { jobsDataService } from './services/jobsData';
 import db from '../database';
+import { writeFileSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { shell } from 'electron';
+import { createServer, Server } from 'http';
 
 // Job operations
 ipcMain.handle('get-jobs', () => {
@@ -86,4 +90,57 @@ ipcMain.handle('get-dark-mode', () => {
 ipcMain.handle('toggle-dark-mode', () => {
   isDarkMode = !isDarkMode;
   return isDarkMode;
+});
+
+// Resume operations
+let resumeServer: Server | null = null;
+const ensureResumeServer = () => {
+  if (resumeServer) return;
+  resumeServer = createServer((req, res) => {
+    if (!req.url) {
+      res.statusCode = 400;
+      return res.end('Bad Request');
+    }
+    const decodedUrl = decodeURI(req.url);
+    if (!decodedUrl.startsWith('/resumes/')) {
+      res.statusCode = 404;
+      return res.end('Not Found');
+    }
+    try {
+      const filePath = join(process.cwd(), decodedUrl);
+      const data = readFileSync(filePath);
+      res.setHeader('Content-Type', 'application/x-tex');
+      res.end(data);
+    } catch {
+      res.statusCode = 404;
+      res.end('File Not Found');
+    }
+  });
+
+  resumeServer.listen(4567, '127.0.0.1', () => {
+    console.log('Resume server running at http://localhost:4567');
+  });
+};
+
+ipcMain.handle('read-resume-template', () => {
+  try {
+    return readFileSync(join(process.cwd(), 'resumes', 'base-resume.tex'), 'utf-8');
+  } catch (error) {
+    console.error('Failed to read resume template:', error);
+    return '';
+  }
+});
+
+ipcMain.handle('save-and-open-resume', (_event, jobId: string, content: string) => {
+  try {
+    const fileName = `job-${jobId}.tex`;
+    const filePath = join(process.cwd(), 'resumes', fileName);
+    writeFileSync(filePath, content, 'utf-8');
+    ensureResumeServer();
+
+    const overleafUrl = `https://www.overleaf.com/docs?snip_uri=http://localhost:4567/resumes/${fileName}&engine=xelatex`;
+    shell.openExternal(overleafUrl);
+  } catch (error) {
+    console.error('Failed to save or open resume:', error);
+  }
 }); 

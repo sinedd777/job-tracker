@@ -1,0 +1,91 @@
+\documentclass[11pt]{article}       % set main text size
+\usepackage[letterpaper,                % set paper size to letterpaper. change to a4paper for resumes outside of North America
+top=0.5in,                          % specify top page margin
+bottom=0.5in,                       % specify bottom page margin
+left=0.5in,                         % specify left page margin
+right=0.5in]{geometry}              % specify right page margin
+                       
+\usepackage{XCharter}               % set font. comment this line out if you want to use the default LaTeX font Computer Modern
+\usepackage[T1]{fontenc}            % output encoding
+\usepackage[utf8]{inputenc}         % input encoding
+\usepackage{enumitem}               % enable lists for bullet points: itemize and \item
+\usepackage[hidelinks]{hyperref}    % format hyperlinks
+\usepackage{titlesec}               % enable section title customization
+\raggedright                        % disable text justification
+\pagestyle{empty}                   % disable page numbering
+
+% ensure PDF output will be all-Unicode and machine-readable
+\input{glyphtounicode}
+\pdfgentounicode=1
+
+% format section headings: bolding, size, white space above and below
+\titleformat{\section}{\bfseries\large}{}{0pt}{}[\vspace{1pt}\titlerule\vspace{-6.5pt}]
+
+% format bullet points: size, white space above and below, white space between bullets
+\renewcommand\labelitemi{$\vcenter{\hbox{\small$\bullet$}}$}
+\setlist[itemize]{itemsep=-2pt, leftmargin=12pt, topsep=7pt} %%% Test various topsep values to fix vertical spacing errors
+
+% resume starts here
+\begin{document}
+
+% name
+\centerline{\Huge Gaurang}
+\vspace{5pt}
+
+% contact information
+\centerline{\href{mailto:gnolas35@asu.edu}{gnolas35@asu.edu} | +1 602-312-3249 
+| \href{https://portfolio-sinedd777s-projects.vercel.app/}{Website}}
+\vspace{-10pt}
+
+% experience section
+\section*{Experience}
+\textbf{Research and Development Intern,} {Axway} -- Scottsdale, Arizona \hfill June 2024 -- August 2024 \\
+\vspace{-9pt}
+\begin{itemize}
+\item Reduced tech debt by 80\% across 3 React microservices by refactoring components into modular, WCAG-compliant patterns using ReactJS and SonarSource
+\item Enforced consistent code quality by setting up Husky pre-commit hooks with Lint-Staged to auto-run linters and formatters on staged files, preventing bad commits
+\item Removed Moment.js usage across multiple projects to reduce bundle size, replacing it with native Date objects and lightweight utilities for parsing and formatting
+\end{itemize}
+\vspace{10pt}
+
+\textbf{Software Developer,} {LetsTransport} -- India \hfill December 2022 -- August 2023 \\
+\vspace{-9pt}
+\begin{itemize}
+    \item Built real-time auction UIs using ReactJS, TypeScript, Redux, TanStack Query, Material UI, and WebSockets, enabling 250K+ drivers across 30+ cities to view and match with jobs live on web and mobile
+    \item Led a 5-member team to ship Bidding, MIS, and POD dashboards using React, Formik, and React Hook Form, cutting customer response time by 24 hours and doubling driver reimbursement speed
+    \item	Migrated the Partner mobile app from React Native CLI to Expo, resolving native module issues and integrating EAS Build to streamline authentication and push notification flows
+    \item	Maintained high test coverage across critical frontend modules using React Testing Library and Vitest, ensuring reliable, regression-free feature rollouts
+    \item	Built a reusable React hook to persist filters in URL state, saving ops teams 10+ minutes per workflow and improving developer collaboration during issue triaging and debugging
+\end{itemize}
+\vspace{10pt}
+
+\textbf{Software Developer,} {Oracle} -- India \hfill June 2019 -- September 2022 \\
+\vspace{-9pt}
+\begin{itemize}
+
+  \item Rewrote core parts of the Document module using Spring Boot, AngularJS, ag-Grid, and Apache Lucene, adding filters and improving search; this sped up UI performance by 40\% and contributed \$100K+ in yearly revenue
+  \item Created a real-time banner editing tool using AngularJS, JavaScript (ES6), Java, and Canvas API, giving admin users the ability to manage content live with full CRUD support
+  \item Migrated legacy UIs from JSP and AngularJS to OJET v13 using Knockout for two-way binding and Preact for fast rendering; rewrote uploader logic to support chunked uploads and lazy loading
+  \item Built and owned REST APIs for two microservices using Java, Spring MVC, ReactJS, and Docker, working closely with testers to improve performance and reduce turnaround time
+  \item Set up a secure secrets management system using Vault, Terraform, Ansible, Docker, and Consul; removed plaintext credentials and supported FedRAMP readiness with high-availability setup
+  % \item 	Developed automated UI and regression tests using Selenium, Java, Ruby, and Jenkins, cutting regression time by 90\% and catching more bugs early
+  \item Developed a TDD-based test automation suite using Cucumber, Selenium, Java, and Jenkins
+\end{itemize}
+\vspace{-6.5pt}
+
+% education section
+\section*{Education}
+\textbf{Arizona State University, Tempe, AZ} -- Master's Degree in Computer Science \hfill May 2025 \\
+\textbf{VIT University, India} -- B.Tech Computer Science and Engineering \hfill June 2019 \\
+
+% skills section
+\section*{Skills}
+\textbf{Frontend}: ReactJS, Next.js, Redux, Tanstack Query, Tailwind CSS\\
+\textbf{Backend}: Java, Spring Boot, Node.js, Express, REST APIs, WebSockets, SQL \\ 
+\textbf{DevOps \& Tooling}: Docker, Vault, Terraform, Ansible, Jenkins, GitHub Actions, CI/CD,
+\vspace{-6.5pt}
+
+
+\vspace{-18.5pt}
+
+\end{document}
