@@ -135,10 +135,14 @@ ipcMain.handle('save-and-open-resume', (_event, jobId: string, content: string) 
   try {
     const fileName = `job-${jobId}.tex`;
     const filePath = join(process.cwd(), 'resumes', fileName);
+    // Persist to disk so user has a copy
     writeFileSync(filePath, content, 'utf-8');
-    ensureResumeServer();
 
-    const overleafUrl = `https://www.overleaf.com/docs?snip_uri=http://localhost:4567/resumes/${fileName}&engine=xelatex`;
+    // Build Base64 data URI so Overleaf can fetch without public URL
+    const base64 = Buffer.from(content, 'utf-8').toString('base64');
+    const dataUri = `data:application/x-tex;base64,${base64}`;
+    const overleafUrl = `https://www.overleaf.com/docs?snip_uri=${encodeURIComponent(dataUri)}`;
+
     shell.openExternal(overleafUrl);
   } catch (error) {
     console.error('Failed to save or open resume:', error);
