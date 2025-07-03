@@ -15,6 +15,18 @@ ipcMain.handle('get-recent-jobs', () => {
   return jobsDataService.getRecentJobs();
 });
 
+ipcMain.handle('get-new-jobs', () => {
+  return jobsDataService.getNewJobs();
+});
+
+ipcMain.handle('get-recent-new-jobs', () => {
+  return jobsDataService.getRecentNewJobs();
+});
+
+ipcMain.handle('get-historical-jobs', () => {
+  return jobsDataService.getHistoricalJobs();
+});
+
 ipcMain.handle('update-job', (_, jobId: string, data: any) => {
   return jobsDataService.updateJobStatus(jobId, data.status);
 });

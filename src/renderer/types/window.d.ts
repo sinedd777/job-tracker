@@ -2,6 +2,9 @@ export interface IElectronAPI {
   // Job operations
   getJobs: () => Promise<any[]>;
   getRecentJobs: () => Promise<any[]>;
+  getNewJobs: () => Promise<any[]>;
+  getRecentNewJobs: () => Promise<any[]>;
+  getHistoricalJobs: () => Promise<any[]>;
   updateJob: (jobId: string, data: any) => Promise<void>;
   
   // Note operations

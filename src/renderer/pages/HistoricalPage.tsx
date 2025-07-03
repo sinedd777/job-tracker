@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { RefreshCcw, FileUser, Mail, Clock } from 'lucide-react';
+import { RefreshCcw, FileUser, Mail } from 'lucide-react';
 import { DataTable, type ColumnDef } from '../components/DataTable';
 
 interface Job {
@@ -66,53 +66,19 @@ const ProcessTracker: React.FC<ProcessTrackerProps> = ({ status }) => {
   );
 };
 
-const DashboardPage: React.FC = () => {
+const HistoricalPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [showRecentOnly, setShowRecentOnly] = useState(false);
   
-  // Query for new jobs (only NEW status)
+  // Query for historical jobs (all non-NEW status jobs)
   const { 
-    data: allNewJobs, 
-    isLoading: isLoadingAll, 
-    error: errorAll, 
-    refetch: refetchAll,
-    isFetching: isFetchingAll 
+    data: historicalJobs, 
+    isLoading, 
+    error, 
+    refetch,
+    isFetching 
   } = useQuery<Job[]>(
-    ['newJobs'], 
-    () => window.api.getNewJobs(),
-    { enabled: !showRecentOnly }
-  );
-  
-  // Query for recent new jobs (last 24 hours with NEW status)
-  const { 
-    data: recentNewJobs, 
-    isLoading: isLoadingRecent, 
-    error: errorRecent, 
-    refetch: refetchRecent,
-    isFetching: isFetchingRecent 
-  } = useQuery<Job[]>(
-    ['recentNewJobs'], 
-    () => window.api.getRecentNewJobs(),
-    { enabled: showRecentOnly }
-  );
-  
-  // Determine which data set to use based on toggle
-  const jobs = showRecentOnly ? recentNewJobs : allNewJobs;
-  const isLoading = showRecentOnly ? isLoadingRecent : isLoadingAll;
-  const error = showRecentOnly ? errorRecent : errorAll;
-  const isFetching = showRecentOnly ? isFetchingRecent : isFetchingAll;
-
-  // Sync jobs from Supabase
-  const syncSupabaseMutation = useMutation(
-    () => window.api.syncRecentJobsFromSupabase(),
-    {
-      onSuccess: () => {
-        // Invalidate both queries to refresh the data
-        queryClient.invalidateQueries(['newJobs']);
-        queryClient.invalidateQueries(['recentNewJobs']);
-        queryClient.invalidateQueries(['historicalJobs']);
-      },
-    }
+    ['historicalJobs'], 
+    () => window.api.getHistoricalJobs(),
   );
 
   const updateStatusMutation = useMutation(
@@ -120,20 +86,15 @@ const DashboardPage: React.FC = () => {
       window.api.updateJob(jobId, { status }),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries(['newJobs']);
-        queryClient.invalidateQueries(['recentNewJobs']);
+        queryClient.invalidateQueries(['jobs']);
+        queryClient.invalidateQueries(['recentJobs']);
         queryClient.invalidateQueries(['historicalJobs']);
       },
     }
   );
 
   const handleRefresh = () => {
-    if (showRecentOnly) {
-      syncSupabaseMutation.mutate();
-      refetchRecent();
-    } else {
-      refetchAll();
-    }
+    refetch();
   };
 
   const columns = useMemo<ColumnDef<Job>[]>(() => [
@@ -245,7 +206,7 @@ const DashboardPage: React.FC = () => {
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
           <RefreshCcw className="w-5 h-5 animate-spin" />
-          <span>Loading jobs...</span>
+          <span>Loading historical jobs...</span>
         </div>
       </div>
     );
@@ -255,7 +216,7 @@ const DashboardPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-lg">
-          Error loading jobs
+          Error loading historical jobs
         </div>
       </div>
     );
@@ -265,41 +226,28 @@ const DashboardPage: React.FC = () => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-          New Job Postings
+          Historical Applications
         </h1>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowRecentOnly(!showRecentOnly)}
-            className={`inline-flex items-center px-2 py-1 text-xs rounded border shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 gap-1.5 ${
-              showRecentOnly 
-                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400' 
-                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-            }`}
-            title={showRecentOnly ? "Showing recent jobs only" : "Show all jobs"}
-          >
-            <Clock className="w-3 h-3" />
-            <span>Recent (24h)</span>
-          </button>
-          <button
             onClick={handleRefresh}
             className="inline-flex items-center px-2 py-1 text-xs rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 gap-1.5 disabled:opacity-50"
-            disabled={isFetching || syncSupabaseMutation.isLoading}
-            title={showRecentOnly ? "Sync recent jobs from Supabase" : "Sync jobs"}
+            disabled={isFetching}
+            title="Refresh historical jobs"
           >
-            <RefreshCcw className={`w-3 h-3 ${isFetching || syncSupabaseMutation.isLoading ? 'animate-spin' : ''}`} />
-            <span>Sync</span>
+            <RefreshCcw className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
       <DataTable
-        data={jobs || []}
+        data={historicalJobs || []}
         columns={columns}
         itemsPerPage={10}
-        enabledFilters={['company', 'location']}
       />
     </div>
   );
 };
 
-export default DashboardPage; 
+export default HistoricalPage; 

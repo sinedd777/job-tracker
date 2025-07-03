@@ -146,6 +146,38 @@ export class JobsDataService {
     }));
   }
 
+  getNewJobs(): JobData[] {
+    const jobs = db.prepare("SELECT * FROM jobs WHERE status = 'NEW' ORDER BY applied_date DESC").all();
+    return jobs.map((job: any) => ({
+      id: job.id,
+      title: job.title,
+      company: job.company,
+      status: job.status,
+      appliedDate: job.applied_date,
+      location: job.location,
+      salary: job.salary,
+      summary: job.summary,
+      url: job.url,
+      lastSync: job.last_sync,
+    }));
+  }
+
+  getHistoricalJobs(): JobData[] {
+    const jobs = db.prepare("SELECT * FROM jobs WHERE status != 'NEW' ORDER BY applied_date DESC").all();
+    return jobs.map((job: any) => ({
+      id: job.id,
+      title: job.title,
+      company: job.company,
+      status: job.status,
+      appliedDate: job.applied_date,
+      location: job.location,
+      salary: job.salary,
+      summary: job.summary,
+      url: job.url,
+      lastSync: job.last_sync,
+    }));
+  }
+
   getRecentJobs(): JobData[] {
     // Get jobs from the last 24 hours
     const twentyFourHoursAgo = new Date();
@@ -153,6 +185,28 @@ export class JobsDataService {
     const formattedDate = twentyFourHoursAgo.toISOString();
     
     const jobs = db.prepare('SELECT * FROM jobs WHERE applied_date >= ? ORDER BY applied_date DESC').all(formattedDate);
+    
+    return jobs.map((job: any) => ({
+      id: job.id,
+      title: job.title,
+      company: job.company,
+      status: job.status,
+      appliedDate: job.applied_date,
+      location: job.location,
+      salary: job.salary,
+      summary: job.summary,
+      url: job.url,
+      lastSync: job.last_sync,
+    }));
+  }
+
+  getRecentNewJobs(): JobData[] {
+    // Get NEW jobs from the last 24 hours
+    const twentyFourHoursAgo = new Date();
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+    const formattedDate = twentyFourHoursAgo.toISOString();
+    
+    const jobs = db.prepare("SELECT * FROM jobs WHERE status = 'NEW' AND applied_date >= ? ORDER BY applied_date DESC").all(formattedDate);
     
     return jobs.map((job: any) => ({
       id: job.id,

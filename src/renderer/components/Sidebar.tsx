@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, Mail } from 'lucide-react';
+import { LayoutDashboard, FileText, Mail, History } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -8,7 +8,8 @@ const Sidebar: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/', label: 'New Jobs', icon: LayoutDashboard },
+    { path: '/historical', label: 'Historical', icon: History },
     { path: '/resume', label: 'Resumes', icon: FileText },
     { path: '/email', label: 'Cold Emails', icon: Mail },
   ];

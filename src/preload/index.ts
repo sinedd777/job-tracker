@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld(
     // Job operations
     getJobs: () => ipcRenderer.invoke('get-jobs'),
     getRecentJobs: () => ipcRenderer.invoke('get-recent-jobs'),
+    getNewJobs: () => ipcRenderer.invoke('get-new-jobs'),
+    getRecentNewJobs: () => ipcRenderer.invoke('get-recent-new-jobs'),
+    getHistoricalJobs: () => ipcRenderer.invoke('get-historical-jobs'),
     updateJob: (jobId: string, data: any) => ipcRenderer.invoke('update-job', jobId, data),
     
     // Note operations
