@@ -138,7 +138,6 @@ export async function fetchRecentJobListings(): Promise<SupabaseJobListing[]> {
       .from('job_listings')
       .select('*')
       .gte('job_posted_date', formattedDate);
-    
     if (error) {
       console.error('Error fetching recent job listings:', error);
       return mockRecentJobs; // Fall back to mock data on error

@@ -190,7 +190,7 @@ const DashboardPage: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800/50">
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-56">Title</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Company</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Process</th>
@@ -210,35 +210,38 @@ const DashboardPage: React.FC = () => {
               ) : (
                 jobs?.map((job) => (
                   <tr key={job.id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-150">
-                    <td className="px-2 py-1.5 whitespace-nowrap">
-                      <Link 
-                        to={`/job/${job.id}`}
-                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-150"
-                      >
-                        {job.title}
-                      </Link>
-                      {job.url && (
-                        <a 
-                          href={job.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                          title="Open job posting"
+                    <td className="px-2 py-1.5 max-w-[400px]">
+                      <div className="flex items-center">
+                        <Link 
+                          to={`/job/${job.id}`}
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-150 truncate"
+                          title={job.title}
                         >
-                          (link)
-                        </a>
-                      )}
+                          {job.title}
+                        </Link>
+                        {job.url && (
+                          <a 
+                            href={job.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
+                            title="Open job posting"
+                          >
+                            (link)
+                          </a>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-900 dark:text-white">
+                    <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-900 dark:text-white max-w-[100px] truncate">
                       {job.company}
                     </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                    <td className="pl-2 pr-4 py-1.5 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 max-w-[100px] truncate">
                       {job.location}
                     </td>
                     <td className="px-2 py-1.5">
                       <ProcessTracker status={job.status} />
                     </td>
-                    <td className="px-2 py-1.5">
+                    <td className="px-2 py-1.5 min-w-[120px]">
                       <select
                         className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-shadow duration-150"
                         value={job.status}
