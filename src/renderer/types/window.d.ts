@@ -30,6 +30,15 @@ export interface IElectronAPI {
   // Resume operations
   readResumeTemplate: () => Promise<string>;
   saveAndOpenResume: (jobId: string, content: string) => Promise<void>;
+  generateResumeSuggestions: (jobId: string) => Promise<{
+    suggestions: string[];
+    relevantProjects: string[];
+    skillsToHighlight: string[];
+    experienceToHighlight: string[];
+  }>;
+
+  // GitHub operations (read-only)
+  getGithubLastSync: () => Promise<string | null>;
 
   // Email operations
   generateColdEmail: (jobId: string, model?: string) => Promise<string>;

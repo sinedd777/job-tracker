@@ -36,6 +36,10 @@ contextBridge.exposeInMainWorld(
     // Resume operations
     readResumeTemplate: () => ipcRenderer.invoke('read-resume-template'),
     saveAndOpenResume: (jobId: string, content: string) => ipcRenderer.invoke('save-and-open-resume', jobId, content),
+    generateResumeSuggestions: (jobId: string) => ipcRenderer.invoke('generate-resume-suggestions', { jobId }),
+
+    // GitHub operations (read-only)
+    getGithubLastSync: () => ipcRenderer.invoke('get-github-last-sync'),
 
     // Email operations
     generateColdEmail: (jobId: string, model?: string) => 

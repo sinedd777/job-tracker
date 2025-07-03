@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
 import './ipc';
+import { githubService } from './services/github';
 
 // Load environment variables for main process. Prioritise .env.local if present.
 dotenv.config({ path: join(process.cwd(), '.env.local') });
@@ -40,21 +41,35 @@ const createWindow = () => {
   }
 };
 
+// Setup GitHub background sync (every 12 hours if GITHUB_USERNAME is set)
+const setupGithubSync = () => {
+  // Initial sync on startup
+  githubService.fetchAndStoreUserRepos().catch(err => {
+    console.error('Failed to sync GitHub repositories:', err);
+  });
+
+  // Set up periodic sync
+  setInterval(() => {
+    githubService.fetchAndStoreUserRepos().catch(err => {
+      console.error('Failed to sync GitHub repositories:', err);
+    });
+  }, 12 * 60 * 60 * 1000); // 12 hours
+};
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  setupGithubSync();
+  
+  app.on('activate', function () {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
 
 // Quit when all windows are closed.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
-  }
-});
-
-app.on('activate', () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
   }
 }); 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Github } from 'lucide-react';
 
 interface Job {
   id: string;
@@ -12,7 +13,15 @@ interface Job {
   salary?: string;
 }
 
-const generateSuggestions = (job?: Job): string[] => {
+interface ResumeImprovementResponse {
+  suggestions: string[];
+  relevantProjects: string[];
+  skillsToHighlight: string[];
+  experienceToHighlight: string[];
+}
+
+// Legacy function for basic suggestions
+const generateBasicSuggestions = (job?: Job): string[] => {
   if (!job) return [];
   const suggestions: string[] = [];
   if (job.title) {
@@ -41,6 +50,23 @@ const ResumePage: React.FC = () => {
   // Load resume template
   const { data: baseTemplate } = useQuery(['resume-template'], () => window.api.readResumeTemplate());
 
+  // GitHub integration - just get last sync time
+  const { data: githubLastSync } = useQuery(['github-last-sync'], () => window.api.getGithubLastSync());
+
+  // RAG-powered suggestions
+  const {
+    data: improvementData,
+    isLoading: isLoadingSuggestions,
+    refetch: refetchSuggestions,
+  } = useQuery<ResumeImprovementResponse>(
+    ['resume-suggestions', id],
+    () => window.api.generateResumeSuggestions(id!),
+    {
+      enabled: !!id && !!job,
+      refetchOnWindowFocus: false,
+    }
+  );
+
   const [latexContent, setLatexContent] = useState<string>('');
 
   // Build personalized template once data is available
@@ -50,7 +76,13 @@ const ResumePage: React.FC = () => {
     }
   }, [baseTemplate, job]);
 
-  const suggestions = useMemo(() => generateSuggestions(job), [job]);
+  // Fallback to basic suggestions if RAG suggestions fail
+  const suggestions = useMemo(() => {
+    if (improvementData?.suggestions && improvementData.suggestions.length > 0) {
+      return improvementData.suggestions;
+    }
+    return generateBasicSuggestions(job);
+  }, [improvementData, job]);
 
   const handleOpenOverleaf = () => {
     if (!id) return;
@@ -110,17 +142,79 @@ const ResumePage: React.FC = () => {
         </div>
 
         {/* Suggestions */}
-        <aside className="w-1/3 bg-gray-50 dark:bg-gray-800 rounded p-4 overflow-y-auto">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">AI Suggestions</h2>
-          {suggestions.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400">No suggestions available.</p>
-          ) : (
-            <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 dark:text-gray-300">
-              {suggestions.map((s, idx) => (
-                <li key={idx}>{s}</li>
-              ))}
-            </ul>
-          )}
+        <aside className="w-1/3 bg-gray-50 dark:bg-gray-800 rounded overflow-y-auto flex flex-col">
+          {/* GitHub Status */}
+          <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Github className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <span className="text-xs text-gray-600 dark:text-gray-400">
+                GitHub data {githubLastSync ? `synced ${new Date(githubLastSync).toLocaleString()}` : 'not synced yet'}
+              </span>
+            </div>
+            <button
+              onClick={() => refetchSuggestions()}
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Refresh suggestions
+            </button>
+          </div>
+          
+          {/* AI Suggestions */}
+          <div className="p-4 flex-1 overflow-y-auto">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">AI Suggestions</h2>
+            
+            {isLoadingSuggestions ? (
+              <p className="text-gray-500 dark:text-gray-400">Generating suggestions...</p>
+            ) : suggestions.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400">No suggestions available.</p>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Improvements</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                    {suggestions.map((s, idx) => (
+                      <li key={idx}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+                
+                {improvementData?.relevantProjects && improvementData.relevantProjects.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Relevant Projects</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                      {improvementData.relevantProjects.map((project, idx) => (
+                        <li key={idx}>{project}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {improvementData?.skillsToHighlight && improvementData.skillsToHighlight.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Skills to Highlight</h3>
+                    <div className="flex flex-wrap gap-1">
+                      {improvementData.skillsToHighlight.map((skill, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {improvementData?.experienceToHighlight && improvementData.experienceToHighlight.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Experience to Highlight</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                      {improvementData.experienceToHighlight.map((exp, idx) => (
+                        <li key={idx}>{exp}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </aside>
       </div>
     </div>

@@ -5,6 +5,8 @@ import { writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { shell } from 'electron';
 import { createServer, Server } from 'http';
+import { githubService } from './services/github';
+import { ragService } from './services/rag';
 
 // Job operations
 ipcMain.handle('get-jobs', () => {
@@ -279,5 +281,39 @@ Return only the final cold email in plain text. No explanations, no bullet point
   } catch (err) {
     console.error('Failed to generate cold email:', err);
     throw err;
+  }
+});
+
+// GitHub operations (only get status, no UI controls)
+ipcMain.handle('get-github-last-sync', () => {
+  return githubService.getLastSyncTime();
+});
+
+// Resume RAG operations
+ipcMain.handle('generate-resume-suggestions', async (_event, args: { jobId: string }) => {
+  const { jobId } = args;
+  
+  try {
+    // 1. Fetch job info
+    const job = jobsDataService.getJob(jobId);
+    if (!job) {
+      throw new Error(`Job with id ${jobId} not found`);
+    }
+    
+    // 2. Load resume template
+    const baseResume = readFileSync(join(process.cwd(), 'resumes', 'base-resume.tex'), 'utf-8');
+    
+    // 3. Generate suggestions using RAG
+    const suggestions = await ragService.generateResumeSuggestions({
+      jobTitle: job.title,
+      jobCompany: job.company,
+      jobDescription: job.summary || '',
+      baseResume,
+    });
+    
+    return suggestions;
+  } catch (error) {
+    console.error('Failed to generate resume suggestions:', error);
+    throw error;
   }
 });
