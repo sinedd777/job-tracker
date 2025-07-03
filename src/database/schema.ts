@@ -10,6 +10,7 @@ export const SCHEMA = {
       location TEXT,
       salary TEXT,
       summary TEXT,
+      url TEXT,
       last_sync TEXT NOT NULL
     )
   `,

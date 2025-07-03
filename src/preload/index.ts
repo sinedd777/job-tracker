@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld(
   'api', {
     // Job operations
     getJobs: () => ipcRenderer.invoke('get-jobs'),
+    getRecentJobs: () => ipcRenderer.invoke('get-recent-jobs'),
     updateJob: (jobId: string, data: any) => ipcRenderer.invoke('update-job', jobId, data),
     
     // Note operations
@@ -23,6 +24,7 @@ contextBridge.exposeInMainWorld(
     
     // Sync operations
     syncJobs: () => ipcRenderer.invoke('sync-jobs'),
+    syncRecentJobsFromSupabase: () => ipcRenderer.invoke('sync-recent-jobs-from-supabase'),
     
     // App operations
     getDarkMode: () => ipcRenderer.invoke('get-dark-mode'),

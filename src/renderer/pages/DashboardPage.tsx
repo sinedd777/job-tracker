@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { RefreshCcw, FileUser, Mail } from 'lucide-react';
+import { RefreshCcw, FileUser, Mail, Clock } from 'lucide-react';
 
 interface Job {
   id: string;
@@ -10,9 +10,10 @@ interface Job {
   status: string;
   appliedDate: string;
   location: string;
+  url?: string;
 }
 
-const STATUSES = ['APPLIED', 'INTERVIEWING', 'OFFERED', 'REJECTED'] as const;
+const STATUSES = ['APPLIED', 'INTERVIEWING', 'OFFERED', 'REJECTED', 'NEW'] as const;
 
 const TRACKER_STEPS = ['APPLIED', 'INTERVIEWING', 'OFFERED'] as const;
 
@@ -23,7 +24,16 @@ interface ProcessTrackerProps {
 const ProcessTracker: React.FC<ProcessTrackerProps> = ({ status }) => {
   const currentIdx = TRACKER_STEPS.indexOf(status as any);
   const isRejected = status === 'REJECTED';
+  const isNew = status === 'NEW';
   const highlightUntil = isRejected ? TRACKER_STEPS.length - 1 : currentIdx;
+
+  if (isNew) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-green-500 dark:text-green-400 font-medium">New</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-0.5">
@@ -57,7 +67,51 @@ const ProcessTracker: React.FC<ProcessTrackerProps> = ({ status }) => {
 
 const DashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const { data: jobs, isLoading, error, refetch, isFetching } = useQuery<Job[]>(['jobs'], () => window.api.getJobs());
+  const [showRecentOnly, setShowRecentOnly] = useState(false);
+  
+  // Query for all jobs
+  const { 
+    data: allJobs, 
+    isLoading: isLoadingAll, 
+    error: errorAll, 
+    refetch: refetchAll,
+    isFetching: isFetchingAll 
+  } = useQuery<Job[]>(
+    ['jobs'], 
+    () => window.api.getJobs(),
+    { enabled: !showRecentOnly }
+  );
+  
+  // Query for recent jobs (last 24 hours)
+  const { 
+    data: recentJobs, 
+    isLoading: isLoadingRecent, 
+    error: errorRecent, 
+    refetch: refetchRecent,
+    isFetching: isFetchingRecent 
+  } = useQuery<Job[]>(
+    ['recentJobs'], 
+    () => window.api.getRecentJobs(),
+    { enabled: showRecentOnly }
+  );
+  
+  // Determine which data set to use based on toggle
+  const jobs = showRecentOnly ? recentJobs : allJobs;
+  const isLoading = showRecentOnly ? isLoadingRecent : isLoadingAll;
+  const error = showRecentOnly ? errorRecent : errorAll;
+  const isFetching = showRecentOnly ? isFetchingRecent : isFetchingAll;
+  
+  // Sync jobs from Supabase
+  const syncSupabaseMutation = useMutation(
+    () => window.api.syncRecentJobsFromSupabase(),
+    {
+      onSuccess: () => {
+        // Invalidate both queries to refresh the data
+        queryClient.invalidateQueries(['jobs']);
+        queryClient.invalidateQueries(['recentJobs']);
+      },
+    }
+  );
 
   const updateStatusMutation = useMutation(
     ({ jobId, status }: { jobId: string; status: string }) =>
@@ -65,9 +119,19 @@ const DashboardPage: React.FC = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['jobs']);
+        queryClient.invalidateQueries(['recentJobs']);
       },
     }
   );
+
+  const handleRefresh = () => {
+    if (showRecentOnly) {
+      syncSupabaseMutation.mutate();
+      refetchRecent();
+    } else {
+      refetchAll();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -96,15 +160,29 @@ const DashboardPage: React.FC = () => {
         <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
           Job Applications
         </h1>
-        <button
-          onClick={() => refetch()}
-          className="inline-flex items-center px-2 py-1 text-xs rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 gap-1.5 disabled:opacity-50"
-          disabled={isFetching}
-          title="Sync jobs"
-        >
-          <RefreshCcw className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} />
-          <span>Sync</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRecentOnly(!showRecentOnly)}
+            className={`inline-flex items-center px-2 py-1 text-xs rounded border shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 gap-1.5 ${
+              showRecentOnly 
+                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400' 
+                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+            }`}
+            title={showRecentOnly ? "Showing recent jobs only" : "Show all jobs"}
+          >
+            <Clock className="w-3 h-3" />
+            <span>Recent (24h)</span>
+          </button>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center px-2 py-1 text-xs rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 gap-1.5 disabled:opacity-50"
+            disabled={isFetching || syncSupabaseMutation.isLoading}
+            title={showRecentOnly ? "Sync recent jobs from Supabase" : "Sync jobs"}
+          >
+            <RefreshCcw className={`w-3 h-3 ${isFetching || syncSupabaseMutation.isLoading ? 'animate-spin' : ''}`} />
+            <span>Sync</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -121,60 +199,81 @@ const DashboardPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {jobs?.map((job) => (
-                <tr key={job.id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-150">
-                  <td className="px-2 py-1.5 whitespace-nowrap">
-                    <Link 
-                      to={`/job/${job.id}`}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-150"
-                    >
-                      {job.title}
-                    </Link>
-                  </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-900 dark:text-white">
-                    {job.company}
-                  </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-                    {job.location}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <ProcessTracker status={job.status} />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <select
-                      className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-shadow duration-150"
-                      value={job.status}
-                      onChange={(e) =>
-                        updateStatusMutation.mutate({ jobId: job.id, status: e.target.value })
-                      }
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s} className="text-xs">
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Link 
-                        to={`/resume/${job.id}`} 
-                        title="Resume Details" 
-                        className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-150"
-                      >
-                        <FileUser className="w-3.5 h-3.5" />
-                      </Link>
-                      <Link 
-                        to={`/email/${job.id}`} 
-                        title="Email Details" 
-                        className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-150"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
+              {jobs?.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-2 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {showRecentOnly 
+                      ? "No jobs posted in the last 24 hours. Try syncing with Supabase or view all jobs." 
+                      : "No jobs found. Try syncing to fetch jobs."}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                jobs?.map((job) => (
+                  <tr key={job.id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-150">
+                    <td className="px-2 py-1.5 whitespace-nowrap">
+                      <Link 
+                        to={`/job/${job.id}`}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-150"
+                      >
+                        {job.title}
+                      </Link>
+                      {job.url && (
+                        <a 
+                          href={job.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          title="Open job posting"
+                        >
+                          (link)
+                        </a>
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-900 dark:text-white">
+                      {job.company}
+                    </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                      {job.location}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <ProcessTracker status={job.status} />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <select
+                        className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-shadow duration-150"
+                        value={job.status}
+                        onChange={(e) =>
+                          updateStatusMutation.mutate({ jobId: job.id, status: e.target.value })
+                        }
+                      >
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s} className="text-xs">
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Link 
+                          to={`/resume/${job.id}`} 
+                          title="Resume Details" 
+                          className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-150"
+                        >
+                          <FileUser className="w-3.5 h-3.5" />
+                        </Link>
+                        <Link 
+                          to={`/email/${job.id}`} 
+                          title="Email Details" 
+                          className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-150"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

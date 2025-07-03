@@ -1,6 +1,7 @@
 export interface IElectronAPI {
   // Job operations
   getJobs: () => Promise<any[]>;
+  getRecentJobs: () => Promise<any[]>;
   updateJob: (jobId: string, data: any) => Promise<void>;
   
   // Note operations
@@ -17,6 +18,7 @@ export interface IElectronAPI {
   
   // Sync operations
   syncJobs: () => Promise<void>;
+  syncRecentJobsFromSupabase: () => Promise<void>;
   
   // App operations
   getDarkMode: () => Promise<boolean>;

@@ -11,6 +11,10 @@ ipcMain.handle('get-jobs', () => {
   return jobsDataService.getJobs();
 });
 
+ipcMain.handle('get-recent-jobs', () => {
+  return jobsDataService.getRecentJobs();
+});
+
 ipcMain.handle('update-job', (_, jobId: string, data: any) => {
   return jobsDataService.updateJobStatus(jobId, data.status);
 });
@@ -78,6 +82,10 @@ ipcMain.handle('get-communications', (_, jobId: string) => {
 // Sync operations
 ipcMain.handle('sync-jobs', () => {
   return jobsDataService.syncJobs();
+});
+
+ipcMain.handle('sync-recent-jobs-from-supabase', async () => {
+  return jobsDataService.syncRecentJobsFromSupabase();
 });
 
 // App operations
@@ -188,32 +196,37 @@ ipcMain.handle('generate-cold-email', async (_event, args: { jobId: string; mode
 
     const jobDescriptionSummary = (job as any).description || (job as any).summary || '';
 
-    const prompt = `You are a cold email writing assistant trained to write concise, human-sounding, and highly personalized outreach emails for job seekers. Your tone should be warm, curious, and professionally confident — not salesy or robotic.\n\n` +
-      `✦ GOAL:\n` +
-      `Write a cold email for a job opportunity that highlights the user's background and demonstrates how they can add value to this specific role.\n\n` +
-      `✦ STRUCTURE:\n` +
-      `\t1. Friendly greeting and short personal context (1-2 lines)\n` +
-      `\t2. Why I'm reaching out / what excites me about the company or team (1-2 lines)\n` +
-      `\t3. Why I think I'd be a strong fit (based on my education, projects, past experience)\n` +
-      `\t4. Soft close (inviting connection or reply) + signature\n\n` +
-      `✦ RULES:\n` +
-      `\t• Do NOT repeat the job description.\n` +
-      `\t• Do NOT list my resume — you may hint at it.\n` +
-      `\t• Avoid phrases like "I am writing to..." or "I would like to express interest..."\n` +
-      `\t• Keep it under 100 words.\n` +
-      `\t• Use real, project-based or skill-based evidence from my background.\n` +
-      `\t• Make it feel like it was written by a thoughtful human, not AI.\n\n` +
-      `✦ CONTEXT:\n` +
-      `Job Title: ${job.title}\n` +
-      `Company: ${job.company}\n` +
-      `Job Description Summary: ${jobDescriptionSummary}\n` +
-      `Recruiter Name (if any): ${recruiterName}\n` +
-      `My Education: ${educationSummary}\n` +
-      `My Projects: ${projectSummary}\n` +
-      `My Experience: ${experienceSummary}\n` +
-      `My Skills: ${skillsSummary}\n\n` +
-      `✦ OUTPUT:\n` +
-      `Return only the final cold email in plain text. No explanations, no bullet points, no notes. Personal, professional, and specific.`;
+    const prompt = `You are a cold email writing assistant trained to write concise, human-sounding, and highly personalized outreach emails for job seekers. Your tone should be warm, curious, and professionally confident — not salesy or robotic.
+
+✦ GOAL:
+Write a cold email for a job opportunity that highlights the user's background and demonstrates how they can add value to this specific role.
+
+✦ STRUCTURE:
+\t1. Friendly greeting and short personal context (1-2 lines)
+\t2. Why I'm reaching out / what excites me about the company or team (1-2 lines)
+\t3. Why I think I'd be a strong fit (based on my education, projects, past experience)
+\t4. Soft close (inviting connection or reply) + signature
+
+✦ RULES:
+\t• Do NOT repeat the job description.
+\t• Do NOT list my resume — you may hint at it.
+\t• Avoid phrases like "I am writing to..." or "I would like to express interest..."
+\t• Keep it under 100 words.
+\t• Use real, project-based or skill-based evidence from my background.
+\t• Make it feel like it was written by a thoughtful human, not AI.
+
+✦ CONTEXT:
+Job Title: ${job.title}
+Company: ${job.company}
+Job Description Summary: ${jobDescriptionSummary}
+Recruiter Name (if any): ${recruiterName}
+My Education: ${educationSummary}
+My Projects: ${projectSummary}
+My Experience: ${experienceSummary}
+My Skills: ${skillsSummary}
+
+✦ OUTPUT:
+Return only the final cold email in plain text. No explanations, no bullet points, no notes. Personal, professional, and specific.`;
 
     // 4. Call OpenAI Chat Completion
     const apiKey = process.env.OPENAI_API_KEY;
@@ -255,4 +268,4 @@ ipcMain.handle('generate-cold-email', async (_event, args: { jobId: string; mode
     console.error('Failed to generate cold email:', err);
     throw err;
   }
-}); 
+});

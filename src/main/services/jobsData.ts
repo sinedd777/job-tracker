@@ -2,6 +2,7 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import db from '../../database';
+import { fetchRecentJobListings, mapSupabaseJobsToAppFormat } from './supabase';
 
 interface JobData {
   id: string;
@@ -12,6 +13,7 @@ interface JobData {
   location: string;
   salary?: string;
   summary?: string;
+  url?: string;
   lastSync?: string;
 }
 
@@ -52,6 +54,7 @@ export class JobsDataService {
           location: j.job_location || j.location || '',
           salary: salaryRange,
           summary: j.job_summary || j.summary || '',
+          url: j.url || '',
         };
         return job;
       });
@@ -69,9 +72,9 @@ export class JobsDataService {
 
     const insertJob = db.prepare(`
       INSERT OR REPLACE INTO jobs (
-        id, title, company, status, applied_date, location, salary, summary, last_sync
+        id, title, company, status, applied_date, location, salary, summary, url, last_sync
       ) VALUES (
-        @id, @title, @company, @status, @appliedDate, @location, @salary, @summary, @lastSync
+        @id, @title, @company, @status, @appliedDate, @location, @salary, @summary, @url, @lastSync
       )
     `);
 
@@ -87,6 +90,42 @@ export class JobsDataService {
     transaction(jobs);
   }
 
+  async syncRecentJobsFromSupabase(): Promise<void> {
+    try {
+      // Fetch recent jobs from Supabase
+      const recentJobs = await fetchRecentJobListings();
+      
+      // Map to our application's job format
+      const mappedJobs = mapSupabaseJobsToAppFormat(recentJobs);
+      
+      // Insert or update jobs in local database
+      const now = new Date().toISOString();
+      
+      const insertJob = db.prepare(`
+        INSERT OR REPLACE INTO jobs (
+          id, title, company, status, applied_date, location, salary, summary, url, last_sync
+        ) VALUES (
+          @id, @title, @company, @status, @appliedDate, @location, @salary, @summary, @url, @lastSync
+        )
+      `);
+
+      const transaction = db.transaction((jobs: JobData[]) => {
+        for (const job of jobs) {
+          insertJob.run({
+            ...job,
+            lastSync: now,
+          });
+        }
+      });
+
+      transaction(mappedJobs);
+      
+      console.log(`Synced ${mappedJobs.length} recent jobs from Supabase`);
+    } catch (error) {
+      console.error('Error syncing recent jobs from Supabase:', error);
+    }
+  }
+
   getJobs(): JobData[] {
     const jobs = db.prepare('SELECT * FROM jobs ORDER BY applied_date DESC').all();
     return jobs.map((job: any) => ({
@@ -98,6 +137,29 @@ export class JobsDataService {
       location: job.location,
       salary: job.salary,
       summary: job.summary,
+      url: job.url,
+      lastSync: job.last_sync,
+    }));
+  }
+
+  getRecentJobs(): JobData[] {
+    // Get jobs from the last 24 hours
+    const twentyFourHoursAgo = new Date();
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+    const formattedDate = twentyFourHoursAgo.toISOString();
+    
+    const jobs = db.prepare('SELECT * FROM jobs WHERE applied_date >= ? ORDER BY applied_date DESC').all(formattedDate);
+    
+    return jobs.map((job: any) => ({
+      id: job.id,
+      title: job.title,
+      company: job.company,
+      status: job.status,
+      appliedDate: job.applied_date,
+      location: job.location,
+      salary: job.salary,
+      summary: job.summary,
+      url: job.url,
       lastSync: job.last_sync,
     }));
   }
@@ -115,6 +177,7 @@ export class JobsDataService {
       location: job.location,
       salary: job.salary,
       summary: job.summary,
+      url: job.url,
       lastSync: job.last_sync,
     };
   }
