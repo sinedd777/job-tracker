@@ -36,6 +36,7 @@ export interface IElectronAPI {
     skillsToHighlight: string[];
     experienceToHighlight: string[];
   }>;
+  updateRagVectorStore: () => Promise<void>;
 
   // GitHub operations (read-only)
   getGithubLastSync: () => Promise<string | null>;

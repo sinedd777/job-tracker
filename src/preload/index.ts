@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld(
     readResumeTemplate: () => ipcRenderer.invoke('read-resume-template'),
     saveAndOpenResume: (jobId: string, content: string) => ipcRenderer.invoke('save-and-open-resume', jobId, content),
     generateResumeSuggestions: (jobId: string) => ipcRenderer.invoke('generate-resume-suggestions', { jobId }),
+    updateRagVectorStore: () => ipcRenderer.invoke('update-rag-vector-store'),
 
     // GitHub operations (read-only)
     getGithubLastSync: () => ipcRenderer.invoke('get-github-last-sync'),

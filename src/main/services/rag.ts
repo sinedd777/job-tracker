@@ -1,6 +1,20 @@
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { app } from 'electron';
 import { githubService } from './github';
+// Remove static import and use dynamic import later
+// import { pipeline } from '@xenova/transformers';
+// Using dynamic import for langchain as well
+// const { FaissStore } = require('langchain/vectorstores/faiss');
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Type declarations for dynamic imports
+declare module '@xenova/transformers' {
+  export function pipeline(task: string, model: string): Promise<any>;
+}
 
 interface ResumeImprovementRequest {
   jobTitle: string;
@@ -16,10 +30,37 @@ interface ResumeImprovementResponse {
   experienceToHighlight: string[];
 }
 
+interface Document {
+  pageContent: string;
+  metadata: {
+    source: string;
+    type: string;
+    title?: string;
+  };
+}
+
 class RAGService {
   private userProfile: any;
+  private dataDir: string;
+  private vectorsDir: string;
+  private embedder: any;
+  private vectorStore: any = null;
+  private isInitialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
+    // Set up data directories
+    this.dataDir = join(app.getPath('userData'), 'rag-data');
+    this.vectorsDir = join(this.dataDir, 'vectors');
+    
+    // Create directories if they don't exist
+    if (!existsSync(this.dataDir)) {
+      mkdirSync(this.dataDir, { recursive: true });
+    }
+    if (!existsSync(this.vectorsDir)) {
+      mkdirSync(this.vectorsDir, { recursive: true });
+    }
+
     // Load user profile
     try {
       const userProfilePath = join(process.cwd(), 'data', 'user-profile.json');
@@ -29,28 +70,310 @@ class RAGService {
       console.error('Failed to load user profile:', error);
       this.userProfile = {};
     }
+
+    // Initialize the embedding model and vector store
+    this.initializationPromise = this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    try {
+      console.log('Initializing RAG service...');
+      
+      // Initialize the embedding model using dynamic import
+      const { pipeline } = await import('@xenova/transformers');
+      this.embedder = await pipeline(
+        'feature-extraction',
+        'Xenova/all-MiniLM-L6-v2'
+      );
+      
+      console.log('Embedding model loaded');
+      
+      // Check if we have existing vectors
+      const vectorIndexPath = join(this.vectorsDir, 'faiss.index');
+      const vectorDocumentsPath = join(this.vectorsDir, 'documents.json');
+      
+      if (existsSync(vectorIndexPath) && existsSync(vectorDocumentsPath)) {
+        // Load existing vector store
+        console.log('Loading existing vector store');
+        await this.loadVectorStore();
+      } else {
+        // Create new vector store
+        console.log('Creating new vector store');
+        await this.createVectorStore();
+      }
+      
+      this.isInitialized = true;
+      console.log('RAG service initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize RAG service:', error);
+      throw error;
+    }
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized) {
+      if (this.initializationPromise) {
+        await this.initializationPromise;
+      } else {
+        await this.initialize();
+      }
+    }
+  }
+
+  private async createVectorStore(): Promise<void> {
+    try {
+      // Prepare documents for embedding
+      const documents = await this.prepareDocuments();
+      
+      // Create embeddings for all documents
+      const embeddings = await this.embedDocuments(documents);
+      
+      // Dynamically import FaissStore with type assertion to silence TypeScript errors
+      // @ts-ignore
+      const module = await import('langchain/vectorstores/faiss');
+      const FaissStore = module.FaissStore;
+      
+      // Create vector store
+      this.vectorStore = await FaissStore.fromTexts(
+        documents.map(doc => doc.pageContent),
+        documents.map(doc => doc.metadata),
+        { embeddings }
+      );
+      
+      // Save vector store
+      await this.saveVectorStore(documents);
+      
+      console.log(`Vector store created with ${documents.length} documents`);
+    } catch (error) {
+      console.error('Failed to create vector store:', error);
+      throw error;
+    }
+  }
+
+  private async loadVectorStore(): Promise<void> {
+    try {
+      // Load documents
+      const documentsPath = join(this.vectorsDir, 'documents.json');
+      const documentsRaw = readFileSync(documentsPath, 'utf-8');
+      const documents = JSON.parse(documentsRaw);
+      
+      // Dynamically import FaissStore with type assertion to silence TypeScript errors
+      // @ts-ignore
+      const module = await import('langchain/vectorstores/faiss');
+      const FaissStore = module.FaissStore;
+      
+      // Load vector store
+      this.vectorStore = await FaissStore.load(
+        this.vectorsDir,
+        { embeddings: this.embedDocuments.bind(this) }
+      );
+      
+      console.log(`Vector store loaded with ${documents.length} documents`);
+    } catch (error) {
+      console.error('Failed to load vector store:', error);
+      // If loading fails, create a new vector store
+      await this.createVectorStore();
+    }
+  }
+
+  private async saveVectorStore(documents: Document[]): Promise<void> {
+    try {
+      // Save documents
+      const documentsPath = join(this.vectorsDir, 'documents.json');
+      writeFileSync(documentsPath, JSON.stringify(documents), 'utf-8');
+      
+      // Save vector store
+      if (this.vectorStore) {
+        await this.vectorStore.save(this.vectorsDir);
+      }
+      
+      console.log('Vector store saved');
+    } catch (error) {
+      console.error('Failed to save vector store:', error);
+      throw error;
+    }
+  }
+
+  private async prepareDocuments(): Promise<Document[]> {
+    const documents: Document[] = [];
+    
+    // Add GitHub repositories
+    const githubRepos = githubService.getAllRepos();
+    for (const repo of githubRepos) {
+      // Add repository description
+      documents.push({
+        pageContent: `Project: ${repo.name}\nDescription: ${repo.description}\nLanguages: ${Object.keys(repo.languages).join(', ')}`,
+        metadata: {
+          source: 'github',
+          type: 'repository',
+          title: repo.name
+        }
+      });
+      
+      // Add README content if available (chunked)
+      if (repo.readme) {
+        const chunks = this.chunkText(repo.readme, 1000, 200);
+        chunks.forEach((chunk, index) => {
+          documents.push({
+            pageContent: chunk,
+            metadata: {
+              source: 'github',
+              type: 'readme',
+              title: `${repo.name}-readme-${index}`
+            }
+          });
+        });
+      }
+    }
+    
+    // Add user profile experience
+    if (this.userProfile.experience) {
+      this.userProfile.experience.forEach((exp: any, index: number) => {
+        const content = `Position: ${exp.position}\nCompany: ${exp.company}\nPeriod: ${exp.startDate} - ${exp.endDate}\nResponsibilities: ${exp.responsibilities?.join('\n- ') || ''}`;
+        documents.push({
+          pageContent: content,
+          metadata: {
+            source: 'user_profile',
+            type: 'experience',
+            title: `experience-${index}`
+          }
+        });
+      });
+    }
+    
+    // Add user profile projects
+    if (this.userProfile.projects) {
+      this.userProfile.projects.forEach((proj: any, index: number) => {
+        const content = `Project: ${proj.title}\nDescription: ${proj.description}\nTechnologies: ${proj.technologies?.join(', ') || ''}`;
+        documents.push({
+          pageContent: content,
+          metadata: {
+            source: 'user_profile',
+            type: 'project',
+            title: `project-${index}`
+          }
+        });
+      });
+    }
+    
+    return documents;
+  }
+
+  private chunkText(text: string, chunkSize: number, overlap: number): string[] {
+    const chunks: string[] = [];
+    let i = 0;
+    
+    while (i < text.length) {
+      let chunk = text.slice(i, i + chunkSize);
+      
+      // If not at the end and we can find a good break point
+      if (i + chunkSize < text.length) {
+        // Try to find a good break point (newline or period)
+        const lastNewline = chunk.lastIndexOf('\n');
+        const lastPeriod = chunk.lastIndexOf('.');
+        
+        let breakPoint = -1;
+        if (lastNewline > chunkSize * 0.7) {
+          breakPoint = lastNewline;
+        } else if (lastPeriod > chunkSize * 0.7) {
+          breakPoint = lastPeriod + 1; // Include the period
+        }
+        
+        if (breakPoint !== -1) {
+          chunk = chunk.slice(0, breakPoint);
+          i += breakPoint;
+        } else {
+          i += chunkSize;
+        }
+      } else {
+        i += chunkSize;
+      }
+      
+      chunks.push(chunk.trim());
+      
+      // Move back by overlap amount
+      i -= overlap;
+      if (i < 0) i = 0;
+    }
+    
+    return chunks;
+  }
+
+  private async embedDocuments(documents: Document[] | string[]): Promise<any[][]> {
+    try {
+      // Ensure embedder is initialized
+      await this.ensureInitialized();
+      
+      // Get text content from documents
+      let texts: string[];
+      if (documents.length > 0 && typeof documents[0] === 'object' && 'pageContent' in documents[0]) {
+        texts = (documents as Document[]).map(doc => doc.pageContent);
+      } else {
+        texts = documents as string[];
+      }
+      
+      // Create embeddings
+      const embeddings = [];
+      for (const text of texts) {
+        const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
+        embeddings.push(Array.from(data));
+      }
+      
+      return embeddings;
+    } catch (error) {
+      console.error('Failed to create embeddings:', error);
+      throw error;
+    }
+  }
+
+  private async searchVectorStore(query: string, k: number = 5): Promise<Document[]> {
+    try {
+      if (!this.vectorStore) {
+        throw new Error('Vector store not initialized');
+      }
+      
+      const results = await this.vectorStore.similaritySearch(query, k);
+      return results;
+    } catch (error) {
+      console.error('Failed to search vector store:', error);
+      return [];
+    }
+  }
+
+  public async updateVectorStore(): Promise<void> {
+    try {
+      await this.ensureInitialized();
+      await this.createVectorStore();
+    } catch (error) {
+      console.error('Failed to update vector store:', error);
+    }
   }
 
   public async generateResumeSuggestions(
     request: ResumeImprovementRequest
   ): Promise<ResumeImprovementResponse> {
     try {
-      // Get GitHub projects data
-      const githubRepos = githubService.getAllRepos();
+      await this.ensureInitialized();
       
       // Extract job details
       const { jobTitle, jobCompany, jobDescription = '' } = request;
       
-      // Build context for RAG
-      const context = this.buildContext(jobTitle, jobCompany, jobDescription, githubRepos);
+      // Create search query
+      const searchQuery = `${jobTitle} ${jobCompany} ${jobDescription.substring(0, 200)}`;
+      
+      // Retrieve relevant documents
+      const relevantDocs = await this.searchVectorStore(searchQuery);
+      
+      // Build context for generation
+      const context = this.buildContext(jobTitle, jobCompany, jobDescription, relevantDocs);
       
       // If OpenAI API key is available, use it to generate suggestions
       const apiKey = process.env.OPENAI_API_KEY;
       if (apiKey) {
-        return await this.callOpenAI(context, jobTitle, jobCompany, jobDescription);
+        return await this.callOpenAI(context, jobTitle, jobCompany, jobDescription, relevantDocs);
       } else {
         // Fallback to rule-based suggestions if no API key
-        return this.generateRuleBasedSuggestions(jobTitle, jobCompany, jobDescription, githubRepos);
+        return this.generateRuleBasedSuggestions(jobTitle, jobCompany, jobDescription, relevantDocs);
       }
     } catch (error) {
       console.error('Failed to generate resume suggestions:', error);
@@ -70,41 +393,37 @@ class RAGService {
     jobTitle: string,
     jobCompany: string,
     jobDescription: string,
-    githubRepos: any[]
+    relevantDocs: Document[]
   ): string {
-    // Extract relevant information from GitHub repos
-    const repoSummaries = githubRepos.map(repo => {
-      return `Project: ${repo.name}
-Description: ${repo.description}
-Languages: ${Object.keys(repo.languages).join(', ')}
-${repo.readme ? `README Excerpt: ${repo.readme.substring(0, 300)}...` : ''}`;
-    }).join('\n\n');
-
-    // Extract relevant information from user profile
-    const experienceSummary = (this.userProfile.experience || [])
-      .map((exp: any) => `${exp.position} at ${exp.company} (${exp.startDate} - ${exp.endDate})
-Responsibilities: ${exp.responsibilities?.join('; ')}`)
-      .join('\n\n');
-
-    const projectsSummary = (this.userProfile.projects || [])
-      .map((proj: any) => `${proj.title}: ${proj.description}
-Technologies: ${proj.technologies?.join(', ')}`)
-      .join('\n\n');
-
+    // Group documents by type
+    const githubRepos = relevantDocs.filter(doc => doc.metadata.source === 'github' && doc.metadata.type === 'repository');
+    const readmeChunks = relevantDocs.filter(doc => doc.metadata.source === 'github' && doc.metadata.type === 'readme');
+    const experiences = relevantDocs.filter(doc => doc.metadata.source === 'user_profile' && doc.metadata.type === 'experience');
+    const projects = relevantDocs.filter(doc => doc.metadata.source === 'user_profile' && doc.metadata.type === 'project');
+    
+    // Format documents by type
+    const repoSummaries = githubRepos.map(doc => doc.pageContent).join('\n\n');
+    const readmeSummaries = readmeChunks.map(doc => doc.pageContent).join('\n\n');
+    const experienceSummaries = experiences.map(doc => doc.pageContent).join('\n\n');
+    const projectSummaries = projects.map(doc => doc.pageContent).join('\n\n');
+    
     // Build the complete context
     return `
 Job Title: ${jobTitle}
 Company: ${jobCompany}
 Job Description: ${jobDescription}
 
-User Experience:
-${experienceSummary}
+Relevant User Experience:
+${experienceSummaries || 'No relevant experience found.'}
 
-User Projects:
-${projectsSummary}
+Relevant User Projects:
+${projectSummaries || 'No relevant projects found.'}
 
-GitHub Projects:
-${repoSummaries}
+Relevant GitHub Repositories:
+${repoSummaries || 'No relevant GitHub repositories found.'}
+
+Relevant README Content:
+${readmeSummaries || 'No relevant README content found.'}
 `;
   }
 
@@ -112,7 +431,8 @@ ${repoSummaries}
     context: string,
     jobTitle: string,
     jobCompany: string,
-    jobDescription: string
+    jobDescription: string,
+    relevantDocs: Document[]
   ): Promise<ResumeImprovementResponse> {
     try {
       const prompt = `You are an expert resume consultant with deep knowledge of ATS systems and hiring processes. Your task is to provide detailed, actionable suggestions to improve a resume for a specific job application.
@@ -178,7 +498,7 @@ Make your suggestions extremely specific, actionable, and tailored to the job.`;
         jobTitle,
         jobCompany,
         jobDescription,
-        githubService.getAllRepos()
+        relevantDocs
       );
     }
   }
@@ -187,7 +507,7 @@ Make your suggestions extremely specific, actionable, and tailored to the job.`;
     jobTitle: string,
     jobCompany: string,
     jobDescription: string,
-    githubRepos: any[]
+    relevantDocs: Document[]
   ): ResumeImprovementResponse {
     // Basic keyword matching for rule-based suggestions
     const jobTitleLower = jobTitle.toLowerCase();
@@ -201,20 +521,10 @@ Make your suggestions extremely specific, actionable, and tailored to the job.`;
       'Prioritize relevant experience and projects at the top of each section.',
     ];
 
-    // Find relevant projects based on simple keyword matching
-    const relevantProjects = githubRepos
-      .filter(repo => {
-        const repoDescription = repo.description.toLowerCase();
-        const repoLanguages = Object.keys(repo.languages).map(l => l.toLowerCase());
-        
-        // Check if repo matches job keywords
-        return jobTitleLower.split(' ').some(word => 
-          word.length > 3 && (repoDescription.includes(word) || repoLanguages.includes(word))
-        ) || jobDescriptionLower.split(' ').some(word => 
-          word.length > 3 && (repoDescription.includes(word) || repoLanguages.includes(word))
-        );
-      })
-      .map(repo => repo.name);
+    // Find relevant projects from the retrieved documents
+    const relevantProjects = relevantDocs
+      .filter(doc => doc.metadata.source === 'github' && doc.metadata.type === 'repository')
+      .map(doc => doc.metadata.title || '');
 
     // Extract potential skills from job title/description
     const skillKeywords = [
@@ -228,19 +538,15 @@ Make your suggestions extremely specific, actionable, and tailored to the job.`;
       jobTitleLower.includes(skill) || jobDescriptionLower.includes(skill)
     );
 
-    // Find relevant experience based on job title
-    const experienceToHighlight = (this.userProfile.experience || [])
-      .filter((exp: any) => {
-        const position = exp.position.toLowerCase();
-        const responsibilities = exp.responsibilities?.join(' ').toLowerCase() || '';
-        
-        return jobTitleLower.split(' ').some(word => 
-          word.length > 3 && (position.includes(word) || responsibilities.includes(word))
-        ) || jobDescriptionLower.split(' ').some(word => 
-          word.length > 3 && (position.includes(word) || responsibilities.includes(word))
-        );
-      })
-      .map((exp: any) => `${exp.position} at ${exp.company}`);
+    // Find relevant experience from the retrieved documents
+    const experienceToHighlight = relevantDocs
+      .filter(doc => doc.metadata.source === 'user_profile' && doc.metadata.type === 'experience')
+      .map(doc => {
+        const lines = doc.pageContent.split('\n');
+        const position = lines.find(line => line.startsWith('Position:'))?.replace('Position:', '').trim() || '';
+        const company = lines.find(line => line.startsWith('Company:'))?.replace('Company:', '').trim() || '';
+        return `${position} at ${company}`;
+      });
 
     return {
       suggestions,

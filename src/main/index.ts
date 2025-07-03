@@ -4,6 +4,7 @@ import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
 import './ipc';
 import { githubService } from './services/github';
+import { ragService } from './services/rag';
 
 // Load environment variables for main process. Prioritise .env.local if present.
 dotenv.config({ path: join(process.cwd(), '.env.local') });
@@ -44,15 +45,29 @@ const createWindow = () => {
 // Setup GitHub background sync (every 12 hours if GITHUB_USERNAME is set)
 const setupGithubSync = () => {
   // Initial sync on startup
-  githubService.fetchAndStoreUserRepos().catch(err => {
-    console.error('Failed to sync GitHub repositories:', err);
-  });
+  githubService.fetchAndStoreUserRepos()
+    .then(async () => {
+      // After GitHub sync, update the RAG vector store
+      console.log('GitHub sync complete, updating RAG vector store...');
+      await ragService.updateVectorStore();
+      console.log('RAG vector store updated');
+    })
+    .catch(err => {
+      console.error('Failed to sync GitHub repositories:', err);
+    });
 
   // Set up periodic sync
   setInterval(() => {
-    githubService.fetchAndStoreUserRepos().catch(err => {
-      console.error('Failed to sync GitHub repositories:', err);
-    });
+    githubService.fetchAndStoreUserRepos()
+      .then(async () => {
+        // After GitHub sync, update the RAG vector store
+        console.log('GitHub sync complete, updating RAG vector store...');
+        await ragService.updateVectorStore();
+        console.log('RAG vector store updated');
+      })
+      .catch(err => {
+        console.error('Failed to sync GitHub repositories:', err);
+      });
   }, 12 * 60 * 60 * 1000); // 12 hours
 };
 

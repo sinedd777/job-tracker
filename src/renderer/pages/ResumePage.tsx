@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Github } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Github, RefreshCcw } from 'lucide-react';
 
 interface Job {
   id: string;
@@ -42,6 +42,7 @@ const injectJobContent = (template: string, job: Job): string => {
 
 const ResumePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   // Fetch all jobs and find one by id (reuse existing API)
   const { data: jobs } = useQuery<Job[]>(['jobs'], () => window.api.getJobs());
@@ -88,6 +89,45 @@ const ResumePage: React.FC = () => {
     if (!id) return;
     window.api.saveAndOpenResume(id, latexContent);
   };
+
+  // RAG vector store update mutation
+  const updateRagMutation = useMutation(() => window.api.updateRagVectorStore(), {
+    onSuccess: () => {
+      // After updating the vector store, refresh suggestions
+      if (id) {
+        queryClient.invalidateQueries(['resume-suggestions', id]);
+      }
+    }
+  });
+
+  // Sidebar GitHub status section
+  const renderGithubStatus = () => (
+    <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Github className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+        <span className="text-xs text-gray-600 dark:text-gray-400">
+          GitHub data {githubLastSync ? `synced ${new Date(githubLastSync).toLocaleString()}` : 'not synced yet'}
+        </span>
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => updateRagMutation.mutate()}
+          disabled={updateRagMutation.isLoading}
+          className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+          title="Update RAG vector store with latest GitHub data"
+        >
+          <RefreshCcw className={`w-3 h-3 ${updateRagMutation.isLoading ? 'animate-spin' : ''}`} />
+          Update RAG
+        </button>
+        <button
+          onClick={() => refetchSuggestions()}
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Refresh
+        </button>
+      </div>
+    </div>
+  );
 
   // Drafts view when /resume has no id
   if (!id) {
@@ -144,20 +184,7 @@ const ResumePage: React.FC = () => {
         {/* Suggestions */}
         <aside className="w-1/3 bg-gray-50 dark:bg-gray-800 rounded overflow-y-auto flex flex-col">
           {/* GitHub Status */}
-          <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Github className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              <span className="text-xs text-gray-600 dark:text-gray-400">
-                GitHub data {githubLastSync ? `synced ${new Date(githubLastSync).toLocaleString()}` : 'not synced yet'}
-              </span>
-            </div>
-            <button
-              onClick={() => refetchSuggestions()}
-              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Refresh suggestions
-            </button>
-          </div>
+          {renderGithubStatus()}
           
           {/* AI Suggestions */}
           <div className="p-4 flex-1 overflow-y-auto">

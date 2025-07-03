@@ -7,7 +7,7 @@ export default defineConfig({
     build: {
       outDir: 'dist/main',
       rollupOptions: {
-        external: ['better-sqlite3'],
+        external: ['better-sqlite3', '@xenova/transformers', 'langchain/vectorstores/faiss'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
         },
@@ -21,7 +21,7 @@ export default defineConfig({
     build: {
       outDir: 'dist/preload',
       rollupOptions: {
-        external: ['better-sqlite3'],
+        external: ['better-sqlite3', '@xenova/transformers', 'langchain/vectorstores/faiss'],
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),
         },

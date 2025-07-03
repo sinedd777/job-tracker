@@ -289,7 +289,11 @@ ipcMain.handle('get-github-last-sync', () => {
   return githubService.getLastSyncTime();
 });
 
-// Resume RAG operations
+// RAG operations
+ipcMain.handle('update-rag-vector-store', async () => {
+  return ragService.updateVectorStore();
+});
+
 ipcMain.handle('generate-resume-suggestions', async (_event, args: { jobId: string }) => {
   const { jobId } = args;
   
