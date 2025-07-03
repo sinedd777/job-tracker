@@ -4,7 +4,8 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { app } from 'electron';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables, prioritizing .env.local
+dotenv.config({ path: join(process.cwd(), '.env.local') });
 dotenv.config();
 
 // Define types for GitHub data
@@ -63,30 +64,32 @@ class GitHubService {
       console.log(`Fetching GitHub repositories for ${username}...`);
       
       // Fetch user repositories
+      console.log('Making API call to fetch repositories...');
       const { data: repos } = await this.octokit.repos.listForUser({
         username,
         sort: 'updated',
         per_page: 100,
       });
-
+      
+      console.log(`Found ${repos.length} total repositories`);
+      
       const repoNames: string[] = [];
       
       // Process each repository
       for (const repo of repos) {
-        // Skip forks and empty repos
-        if (repo.fork || !repo.description) continue;
-
-        repoNames.push(repo.name);
+        // Log repo info before filtering
+        console.log(`Processing repo: ${repo.name} (fork: ${repo.fork})`);
         
-        // Get languages
-        const { data: languages } = await this.octokit.repos.listLanguages({
-          owner: username,
-          repo: repo.name,
-        });
+        // Skip forks
+        if (repo.fork) {
+          console.log(`Skipping ${repo.name} - fork: ${repo.fork}`);
+          continue;
+        }
 
-        // Get README if available
+        // Get README content first
         let readme = '';
         try {
+          console.log(`Fetching README for ${repo.name}...`);
           const { data } = await this.octokit.repos.getReadme({
             owner: username,
             repo: repo.name,
@@ -94,15 +97,30 @@ class GitHubService {
           
           // Decode base64 content
           readme = Buffer.from(data.content, 'base64').toString('utf-8');
-        } catch (error) {
-          // README might not exist
-          console.log(`No README found for ${repo.name}`);
+          console.log(`Successfully fetched README for ${repo.name}`);
+        } catch (error: any) {
+          // Skip repositories without README
+          console.log(`Skipping ${repo.name} - no README found: ${error.message}`);
+          continue;
         }
+
+        // Only process repositories that have a README
+        repoNames.push(repo.name);
+        
+        // Get languages
+        console.log(`Fetching languages for ${repo.name}...`);
+        const { data: languages } = await this.octokit.repos.listLanguages({
+          owner: username,
+          repo: repo.name,
+        });
+
+        // Extract a description from README if possible
+        const readmeDescription = this.extractDescriptionFromReadme(readme);
 
         // Store repo data
         const repoData: RepoData = {
           name: repo.name,
-          description: repo.description || '',
+          description: readmeDescription || repo.name,
           languages,
           readme,
           lastUpdated: new Date().toISOString(),
@@ -110,6 +128,7 @@ class GitHubService {
 
         const repoPath = join(this.reposDir, `${repo.name}.json`);
         writeFileSync(repoPath, JSON.stringify(repoData, null, 2), 'utf-8');
+        console.log(`Stored data for ${repo.name}`);
       }
 
       // Update last sync time
@@ -119,12 +138,49 @@ class GitHubService {
         'utf-8'
       );
 
-      console.log(`Successfully synced ${repoNames.length} repositories`);
+      console.log(`Successfully synced ${repoNames.length} repositories with README files`);
       return repoNames;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch GitHub repositories:', error);
+      if (error.response) {
+        console.error('API Response Status:', error.response.status);
+        console.error('API Response Data:', error.response.data);
+      }
       return [];
     }
+  }
+
+  private extractDescriptionFromReadme(readme: string): string {
+    // Try to find the first paragraph after any headers
+    const lines = readme.split('\n');
+    let description = '';
+    let foundFirstHeader = false;
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (!trimmedLine) continue;
+      
+      // Look for a header (# style or === style)
+      if (trimmedLine.startsWith('#') || /^[=\-]{3,}$/.test(trimmedLine)) {
+        foundFirstHeader = true;
+        continue;
+      }
+      
+      // After finding a header, get the first non-empty paragraph
+      if (foundFirstHeader && trimmedLine) {
+        description = trimmedLine;
+        break;
+      }
+    }
+    
+    // If no description found after headers, just take the first non-empty line
+    if (!description) {
+      description = lines.find(line => line.trim()) || '';
+    }
+    
+    return description;
   }
 
   public getRepoData(repoName: string): RepoData | null {

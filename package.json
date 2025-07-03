@@ -43,6 +43,8 @@
   "license": "ISC",
   "dependencies": {
     "@headlessui/react": "^2.2.4",
+    "@langchain/community": "^0.3.48",
+    "@langchain/core": "^0.3.62",
     "@msgpack/msgpack": "^3.1.2",
     "@octokit/rest": "^22.0.0",
     "@supabase/supabase-js": "^2.39.0",
@@ -55,6 +57,7 @@
     "dotenv": "^16.3.1",
     "electron-store": "^8.1.0",
     "faiss-node": "^0.5.1",
+    "langchain": "^0.3.29",
     "lucide-react": "^0.525.0",
     "node-cron": "^3.0.0",
     "node-fetch": "^2.7.0",

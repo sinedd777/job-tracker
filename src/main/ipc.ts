@@ -298,16 +298,26 @@ ipcMain.handle('generate-resume-suggestions', async (_event, args: { jobId: stri
   const { jobId } = args;
   
   try {
+    console.log(`Generating resume suggestions for job ${jobId}...`);
+    
     // 1. Fetch job info
     const job = jobsDataService.getJob(jobId);
     if (!job) {
       throw new Error(`Job with id ${jobId} not found`);
     }
+    console.log('Job data:', {
+      title: job.title,
+      company: job.company,
+      hasSummary: !!job.summary,
+      summaryLength: job.summary?.length || 0
+    });
     
     // 2. Load resume template
     const baseResume = readFileSync(join(process.cwd(), 'resumes', 'base-resume.tex'), 'utf-8');
+    console.log('Resume template loaded, length:', baseResume.length);
     
     // 3. Generate suggestions using RAG
+    console.log('Calling RAG service for suggestions...');
     const suggestions = await ragService.generateResumeSuggestions({
       jobTitle: job.title,
       jobCompany: job.company,
@@ -315,9 +325,20 @@ ipcMain.handle('generate-resume-suggestions', async (_event, args: { jobId: stri
       baseResume,
     });
     
+    console.log('Successfully generated suggestions:', {
+      hasSuggestions: suggestions.suggestions.length > 0,
+      numProjects: suggestions.relevantProjects.length,
+      numSkills: suggestions.skillsToHighlight.length,
+      numExperience: suggestions.experienceToHighlight.length
+    });
+    
     return suggestions;
   } catch (error) {
     console.error('Failed to generate resume suggestions:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Stack trace:', error.stack);
+    }
     throw error;
   }
 });

@@ -77,16 +77,28 @@ class RAGService {
 
   private async initialize(): Promise<void> {
     try {
-      console.log('Initializing RAG service...');
+      console.log('Starting RAG service initialization...');
       
-      // Initialize the embedding model using dynamic import
+      console.log('Importing transformers pipeline...');
       const { pipeline } = await import('@xenova/transformers');
+      
+      console.log('Creating embedding pipeline...');
+      console.log('This may take a few minutes on first run as it downloads the model...');
       this.embedder = await pipeline(
         'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2'
+        'Xenova/all-MiniLM-L6-v2',
+        {
+          progress_callback: (progress: any) => {
+            if (progress.status === 'downloading') {
+              console.log(`Downloading model: ${Math.round(progress.progress * 100)}%`);
+            } else if (progress.status === 'loading') {
+              console.log(`Loading model: ${progress.file}`);
+            }
+          }
+        }
       );
       
-      console.log('Embedding model loaded');
+      console.log('Embedding model loaded successfully');
       
       // Check if we have existing vectors
       const vectorIndexPath = join(this.vectorsDir, 'faiss.index');
@@ -94,83 +106,138 @@ class RAGService {
       
       if (existsSync(vectorIndexPath) && existsSync(vectorDocumentsPath)) {
         // Load existing vector store
-        console.log('Loading existing vector store');
+        console.log('Found existing vector store, attempting to load...');
         await this.loadVectorStore();
       } else {
         // Create new vector store
-        console.log('Creating new vector store');
-        await this.createVectorStore();
+        console.log('No existing vector store found, will create new one when needed');
       }
       
       this.isInitialized = true;
-      console.log('RAG service initialized successfully');
+      console.log('RAG service initialization completed');
     } catch (error) {
       console.error('Failed to initialize RAG service:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
       throw error;
     }
   }
 
   private async ensureInitialized(): Promise<void> {
+    if (this.isInitialized) return;
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+    } else {
+      this.initializationPromise = this.initialize();
+      await this.initializationPromise;
+    }
     if (!this.isInitialized) {
-      if (this.initializationPromise) {
-        await this.initializationPromise;
-      } else {
-        await this.initialize();
-      }
+      throw new Error('RAG service failed to initialize');
     }
   }
 
   private async createVectorStore(): Promise<void> {
     try {
+      console.log('Starting vector store creation...');
+      
       // Prepare documents for embedding
       const documents = await this.prepareDocuments();
+      console.log(`Prepared ${documents.length} documents for embedding`);
       
       // Create embeddings for all documents
+      console.log('Creating embeddings for all documents...');
       const embeddings = await this.embedDocuments(documents);
+      console.log(`Created ${embeddings.length} embeddings`);
       
-      // Dynamically import FaissStore with type assertion to silence TypeScript errors
-      // @ts-ignore
-      const module = await import('langchain/vectorstores/faiss');
-      const FaissStore = module.FaissStore;
+      // Create embeddings object for FaissStore
+      const embeddingsObject = {
+        embedQuery: async (text: string) => {
+          try {
+            const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
+            return Array.from(data) as number[];
+          } catch (error) {
+            console.error('Error embedding query:', error);
+            throw error;
+          }
+        },
+        embedDocuments: async (texts: string[]) => {
+          return this.embedDocuments(texts);
+        }
+      };
+      
+      // Dynamically import FaissStore
+      console.log('Creating FaissStore instance...');
+      const { FaissStore } = await import('@langchain/community/vectorstores/faiss');
       
       // Create vector store
       this.vectorStore = await FaissStore.fromTexts(
         documents.map(doc => doc.pageContent),
         documents.map(doc => doc.metadata),
-        { embeddings }
+        embeddingsObject
       );
       
       // Save vector store
+      console.log('Saving vector store...');
       await this.saveVectorStore(documents);
       
-      console.log(`Vector store created with ${documents.length} documents`);
+      console.log('Vector store creation completed successfully');
+      this.isInitialized = true;
     } catch (error) {
       console.error('Failed to create vector store:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
       throw error;
     }
   }
 
   private async loadVectorStore(): Promise<void> {
     try {
+      console.log('Starting vector store loading...');
+      
       // Load documents
       const documentsPath = join(this.vectorsDir, 'documents.json');
       const documentsRaw = readFileSync(documentsPath, 'utf-8');
       const documents = JSON.parse(documentsRaw);
       
-      // Dynamically import FaissStore with type assertion to silence TypeScript errors
-      // @ts-ignore
-      const module = await import('langchain/vectorstores/faiss');
-      const FaissStore = module.FaissStore;
+      // Create embeddings object for FaissStore
+      const embeddingsObject = {
+        embedQuery: async (text: string) => {
+          const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
+          return Array.from(data);
+        },
+        embedDocuments: async (texts: string[]) => {
+          const embeddings = [];
+          for (const text of texts) {
+            const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
+            embeddings.push(Array.from(data));
+          }
+          return embeddings;
+        }
+      };
+      
+      // Dynamically import FaissStore
+      console.log('Importing FaissStore...');
+      const { FaissStore } = await import('@langchain/community/vectorstores/faiss');
       
       // Load vector store
+      console.log('Loading FaissStore instance...');
       this.vectorStore = await FaissStore.load(
         this.vectorsDir,
-        { embeddings: this.embedDocuments.bind(this) }
+        embeddingsObject
       );
       
       console.log(`Vector store loaded with ${documents.length} documents`);
+      this.isInitialized = true;
     } catch (error) {
       console.error('Failed to load vector store:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
       // If loading fails, create a new vector store
       await this.createVectorStore();
     }
@@ -195,133 +262,153 @@ class RAGService {
   }
 
   private async prepareDocuments(): Promise<Document[]> {
+    console.log('Starting document preparation...');
     const documents: Document[] = [];
-    
-    // Add GitHub repositories
-    const githubRepos = githubService.getAllRepos();
-    for (const repo of githubRepos) {
-      // Add repository description
+
+    // Add user profile as a document
+    if (this.userProfile) {
+      console.log('Adding user profile to documents...');
       documents.push({
-        pageContent: `Project: ${repo.name}\nDescription: ${repo.description}\nLanguages: ${Object.keys(repo.languages).join(', ')}`,
+        pageContent: JSON.stringify(this.userProfile, null, 2),
         metadata: {
-          source: 'github',
-          type: 'repository',
-          title: repo.name
+          source: 'user-profile',
+          type: 'profile'
         }
       });
-      
-      // Add README content if available (chunked)
-      if (repo.readme) {
-        const chunks = this.chunkText(repo.readme, 1000, 200);
-        chunks.forEach((chunk, index) => {
+    }
+
+    // Get GitHub repositories
+    console.log('Fetching GitHub repositories...');
+    const repos = await githubService.fetchAndStoreUserRepos();
+    console.log(`Found ${repos.length} repositories to process`);
+
+    // Process each repository
+    for (const repoName of repos) {
+      try {
+        console.log(`Processing repository: ${repoName}`);
+        const repoData = await githubService.getRepoData(repoName);
+        
+        if (!repoData) {
+          console.log(`No data found for repository: ${repoName}`);
+          continue;
+        }
+
+        // Add README content
+        if (repoData.readme) {
+          console.log(`Adding README for ${repoName}`);
           documents.push({
-            pageContent: chunk,
+            pageContent: repoData.readme,
             metadata: {
-              source: 'github',
+              source: `github-readme-${repoName}`,
               type: 'readme',
-              title: `${repo.name}-readme-${index}`
+              title: repoName
             }
           });
+        }
+
+        // Add repository info
+        console.log(`Adding repository info for ${repoName}`);
+        documents.push({
+          pageContent: `Repository: ${repoName}\nLanguages: ${Object.keys(repoData.languages || {}).join(', ')}\nDescription: ${repoData.description || repoName}`,
+          metadata: {
+            source: `github-repo-${repoName}`,
+            type: 'repository',
+            title: repoName
+          }
         });
+      } catch (error) {
+        console.error(`Error processing repository ${repoName}:`, error);
       }
     }
-    
-    // Add user profile experience
-    if (this.userProfile.experience) {
-      this.userProfile.experience.forEach((exp: any, index: number) => {
-        const content = `Position: ${exp.position}\nCompany: ${exp.company}\nPeriod: ${exp.startDate} - ${exp.endDate}\nResponsibilities: ${exp.responsibilities?.join('\n- ') || ''}`;
-        documents.push({
-          pageContent: content,
-          metadata: {
-            source: 'user_profile',
-            type: 'experience',
-            title: `experience-${index}`
-          }
-        });
-      });
-    }
-    
-    // Add user profile projects
-    if (this.userProfile.projects) {
-      this.userProfile.projects.forEach((proj: any, index: number) => {
-        const content = `Project: ${proj.title}\nDescription: ${proj.description}\nTechnologies: ${proj.technologies?.join(', ') || ''}`;
-        documents.push({
-          pageContent: content,
-          metadata: {
-            source: 'user_profile',
-            type: 'project',
-            title: `project-${index}`
-          }
-        });
-      });
-    }
-    
+
+    console.log(`Prepared ${documents.length} total documents`);
     return documents;
   }
 
-  private chunkText(text: string, chunkSize: number, overlap: number): string[] {
-    const chunks: string[] = [];
-    let i = 0;
-    
-    while (i < text.length) {
-      let chunk = text.slice(i, i + chunkSize);
-      
-      // If not at the end and we can find a good break point
-      if (i + chunkSize < text.length) {
-        // Try to find a good break point (newline or period)
-        const lastNewline = chunk.lastIndexOf('\n');
-        const lastPeriod = chunk.lastIndexOf('.');
-        
-        let breakPoint = -1;
-        if (lastNewline > chunkSize * 0.7) {
-          breakPoint = lastNewline;
-        } else if (lastPeriod > chunkSize * 0.7) {
-          breakPoint = lastPeriod + 1; // Include the period
-        }
-        
-        if (breakPoint !== -1) {
-          chunk = chunk.slice(0, breakPoint);
-          i += breakPoint;
-        } else {
-          i += chunkSize;
-        }
-      } else {
-        i += chunkSize;
-      }
-      
-      chunks.push(chunk.trim());
-      
-      // Move back by overlap amount
-      i -= overlap;
-      if (i < 0) i = 0;
-    }
-    
-    return chunks;
-  }
-
-  private async embedDocuments(documents: Document[] | string[]): Promise<any[][]> {
+  private async embedDocuments(documents: Document[] | string[]): Promise<number[][]> {
     try {
+      console.log('Starting embedDocuments process...');
+      
       // Ensure embedder is initialized
+      console.log('Checking embedder initialization...');
       await this.ensureInitialized();
+      console.log('Embedder is initialized');
       
       // Get text content from documents
+      console.log('Preparing texts for embedding...');
       let texts: string[];
       if (documents.length > 0 && typeof documents[0] === 'object' && 'pageContent' in documents[0]) {
         texts = (documents as Document[]).map(doc => doc.pageContent);
       } else {
         texts = documents as string[];
       }
+      console.log(`Prepared ${texts.length} texts for embedding`);
       
-      // Create embeddings
-      const embeddings = [];
-      for (const text of texts) {
-        const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
-        embeddings.push(Array.from(data));
+      // Process in smaller batches of 5 documents
+      const batchSize = 5;
+      const embeddings: number[][] = [];
+      console.log(`Will create embeddings in ${Math.ceil(texts.length/batchSize)} batches of ${batchSize} documents each`);
+      
+      for (let i = 0; i < texts.length; i += batchSize) {
+        const batch = texts.slice(i, i + batchSize);
+        console.log(`\nStarting batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(texts.length/batchSize)}...`);
+        console.log(`This batch contains ${batch.length} documents`);
+        
+        try {
+          console.log('Creating embedding promises for batch...');
+          const batchPromises = batch.map(async (text, index) => {
+            const docIndex = i + index + 1;
+            console.log(`Starting document ${docIndex}/${texts.length}`);
+            console.log(`Document ${docIndex} length: ${text.length} characters`);
+            
+            try {
+              console.log(`Embedding document ${docIndex}...`);
+              const startTime = Date.now();
+              const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
+              const duration = Date.now() - startTime;
+              console.log(`Completed document ${docIndex} embedding in ${duration}ms`);
+              return Array.from(data) as number[];
+            } catch (error) {
+              console.error(`Error embedding document ${docIndex}:`, error);
+              if (error instanceof Error) {
+                console.error(`Document ${docIndex} error details:`, error.message);
+                console.error(`Document ${docIndex} stack trace:`, error.stack);
+              }
+              console.log(`Returning zero vector for failed document ${docIndex}`);
+              return new Array(384).fill(0);
+            }
+          });
+          
+          console.log('Waiting for batch embeddings to complete...');
+          const batchStartTime = Date.now();
+          const batchEmbeddings = await Promise.all(batchPromises);
+          const batchDuration = Date.now() - batchStartTime;
+          console.log(`Batch completed in ${batchDuration}ms`);
+          
+          embeddings.push(...batchEmbeddings);
+          console.log(`Progress: ${embeddings.length}/${texts.length} embeddings completed`);
+        } catch (error) {
+          console.error(`Error processing batch ${Math.floor(i/batchSize) + 1}:`, error);
+          if (error instanceof Error) {
+            console.error('Batch error details:', error.message);
+            console.error('Batch stack trace:', error.stack);
+          }
+          continue;
+        }
       }
       
+      if (embeddings.length === 0) {
+        throw new Error('Failed to create any embeddings');
+      }
+      
+      console.log(`Successfully created all ${embeddings.length} embeddings`);
       return embeddings;
     } catch (error) {
       console.error('Failed to create embeddings:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
       throw error;
     }
   }
@@ -341,11 +428,27 @@ class RAGService {
   }
 
   public async updateVectorStore(): Promise<void> {
+    console.log('Starting vector store update...');
     try {
-      await this.ensureInitialized();
-      await this.createVectorStore();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Vector store update timed out after 5 minutes')), 300000);
+      });
+
+      const updatePromise = (async () => {
+        await this.ensureInitialized();
+        console.log('Creating new vector store...');
+        await this.createVectorStore();
+        console.log('Vector store update completed successfully');
+      })();
+
+      await Promise.race([updatePromise, timeoutPromise]);
     } catch (error) {
       console.error('Failed to update vector store:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
+      throw error;
     }
   }
 
@@ -353,16 +456,25 @@ class RAGService {
     request: ResumeImprovementRequest
   ): Promise<ResumeImprovementResponse> {
     try {
+      console.log('Starting resume suggestions generation...');
       await this.ensureInitialized();
+      
+      if (!this.vectorStore) {
+        console.error('Vector store not available');
+        throw new Error('Vector store not initialized');
+      }
       
       // Extract job details
       const { jobTitle, jobCompany, jobDescription = '' } = request;
+      console.log(`Generating suggestions for ${jobTitle} at ${jobCompany}`);
       
       // Create search query
       const searchQuery = `${jobTitle} ${jobCompany} ${jobDescription.substring(0, 200)}`;
       
       // Retrieve relevant documents
+      console.log('Searching vector store for relevant documents...');
       const relevantDocs = await this.searchVectorStore(searchQuery);
+      console.log(`Found ${relevantDocs.length} relevant documents`);
       
       // Build context for generation
       const context = this.buildContext(jobTitle, jobCompany, jobDescription, relevantDocs);
@@ -370,17 +482,23 @@ class RAGService {
       // If OpenAI API key is available, use it to generate suggestions
       const apiKey = process.env.OPENAI_API_KEY;
       if (apiKey) {
+        console.log('Using OpenAI for suggestions generation');
         return await this.callOpenAI(context, jobTitle, jobCompany, jobDescription, relevantDocs);
       } else {
-        // Fallback to rule-based suggestions if no API key
+        console.log('No OpenAI API key found, using rule-based suggestions');
         return this.generateRuleBasedSuggestions(jobTitle, jobCompany, jobDescription, relevantDocs);
       }
     } catch (error) {
       console.error('Failed to generate resume suggestions:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
       return {
         suggestions: [
           'Failed to generate suggestions. Please try again later.',
           'Make sure your resume highlights relevant skills and experience.',
+          `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         ],
         relevantProjects: [],
         skillsToHighlight: [],
