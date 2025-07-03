@@ -44,8 +44,6 @@ class GitHubService {
     if (!existsSync(this.reposDir)) {
       mkdirSync(this.reposDir, { recursive: true });
     }
-    
-    console.log(`GitHub service initialized with username: ${this.username || 'not set'}`);
   }
 
   public getUsername(): string {
@@ -56,40 +54,29 @@ class GitHubService {
     const username = this.getUsername();
     
     if (!username) {
-      console.warn('GitHub username not set in environment variables (GITHUB_USERNAME)');
       return [];
     }
 
     try {
-      console.log(`Fetching GitHub repositories for ${username}...`);
-      
       // Fetch user repositories
-      console.log('Making API call to fetch repositories...');
       const { data: repos } = await this.octokit.repos.listForUser({
         username,
         sort: 'updated',
         per_page: 100,
       });
       
-      console.log(`Found ${repos.length} total repositories`);
-      
       const repoNames: string[] = [];
       
       // Process each repository
       for (const repo of repos) {
-        // Log repo info before filtering
-        console.log(`Processing repo: ${repo.name} (fork: ${repo.fork})`);
-        
         // Skip forks
         if (repo.fork) {
-          console.log(`Skipping ${repo.name} - fork: ${repo.fork}`);
           continue;
         }
 
         // Get README content first
         let readme = '';
         try {
-          console.log(`Fetching README for ${repo.name}...`);
           const { data } = await this.octokit.repos.getReadme({
             owner: username,
             repo: repo.name,
@@ -97,10 +84,8 @@ class GitHubService {
           
           // Decode base64 content
           readme = Buffer.from(data.content, 'base64').toString('utf-8');
-          console.log(`Successfully fetched README for ${repo.name}`);
         } catch (error: any) {
           // Skip repositories without README
-          console.log(`Skipping ${repo.name} - no README found: ${error.message}`);
           continue;
         }
 
@@ -108,7 +93,6 @@ class GitHubService {
         repoNames.push(repo.name);
         
         // Get languages
-        console.log(`Fetching languages for ${repo.name}...`);
         const { data: languages } = await this.octokit.repos.listLanguages({
           owner: username,
           repo: repo.name,
@@ -128,7 +112,6 @@ class GitHubService {
 
         const repoPath = join(this.reposDir, `${repo.name}.json`);
         writeFileSync(repoPath, JSON.stringify(repoData, null, 2), 'utf-8');
-        console.log(`Stored data for ${repo.name}`);
       }
 
       // Update last sync time
@@ -138,13 +121,10 @@ class GitHubService {
         'utf-8'
       );
 
-      console.log(`Successfully synced ${repoNames.length} repositories with README files`);
       return repoNames;
     } catch (error: any) {
-      console.error('Failed to fetch GitHub repositories:', error);
       if (error.response) {
-        console.error('API Response Status:', error.response.status);
-        console.error('API Response Data:', error.response.data);
+        // Handle error silently
       }
       return [];
     }
@@ -191,7 +171,6 @@ class GitHubService {
       }
       return JSON.parse(readFileSync(repoPath, 'utf-8'));
     } catch (error) {
-      console.error(`Failed to get data for repo ${repoName}:`, error);
       return null;
     }
   }
@@ -212,7 +191,6 @@ class GitHubService {
       }
       return repos;
     } catch (error) {
-      console.error('Failed to get all repos:', error);
       return [];
     }
   }
@@ -226,7 +204,6 @@ class GitHubService {
       const data = JSON.parse(readFileSync(syncPath, 'utf-8'));
       return data.lastSync;
     } catch (error) {
-      console.error('Failed to get last sync time:', error);
       return null;
     }
   }
