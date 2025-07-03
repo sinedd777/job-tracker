@@ -92,11 +92,15 @@ export class JobsDataService {
 
   async syncRecentJobsFromSupabase(): Promise<void> {
     try {
+      console.log('Starting sync of recent jobs from Supabase...');
+      
       // Fetch recent jobs from Supabase
       const recentJobs = await fetchRecentJobListings();
+      console.log(`Fetched ${recentJobs.length} recent job listings from Supabase`);
       
       // Map to our application's job format
       const mappedJobs = mapSupabaseJobsToAppFormat(recentJobs);
+      console.log(`Mapped ${mappedJobs.length} jobs to application format`);
       
       // Insert or update jobs in local database
       const now = new Date().toISOString();
@@ -120,7 +124,7 @@ export class JobsDataService {
 
       transaction(mappedJobs);
       
-      console.log(`Synced ${mappedJobs.length} recent jobs from Supabase`);
+      console.log(`Successfully synced ${mappedJobs.length} recent jobs from Supabase to local database`);
     } catch (error) {
       console.error('Error syncing recent jobs from Supabase:', error);
     }
