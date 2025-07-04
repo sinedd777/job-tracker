@@ -325,12 +325,6 @@ ipcMain.handle('generate-resume-suggestions', async (_event, args: { jobId: stri
       baseResume,
     });
     
-    console.log('Successfully generated suggestions:', {
-      hasSuggestions: suggestions.suggestions.length > 0,
-      numProjects: suggestions.relevantProjects.length,
-      numSkills: suggestions.skillsToHighlight.length,
-      numExperience: suggestions.experienceToHighlight.length
-    });
     
     return suggestions;
   } catch (error) {
