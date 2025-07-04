@@ -9,8 +9,6 @@ A desktop application built with Electron and React that helps users manage thei
 - **Offline-First**: Full functionality without internet connection
 - **Cloud Sync**: Optional Supabase synchronization for multi-device access
 - **Status Tracking**: Monitor application progress and deadlines
-- **Communication Logging**: Keep track of all job-related communications
-- **Notes & Reminders**: Attach notes and set reminders for important dates
 - **Resume Enhancement**: AI-powered resume improvement suggestions based on your GitHub projects
 
 ### Resume Enhancement with GitHub Projects
