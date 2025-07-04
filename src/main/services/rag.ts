@@ -320,19 +320,6 @@ class RAGService {
     }
   }
 
-  private async searchVectorStore(query: string, k: number = 5): Promise<CustomDocument[]> {
-    try {
-      if (!this.vectorStore) {
-        throw new Error('Vector store not initialized');
-      }
-
-      const results = await this.vectorStore.similaritySearch(query, k);
-      return results;
-    } catch (error) {
-      return [];
-    }
-  }
-
   public async updateVectorStore(): Promise<void> {
     try {
       const timeoutPromise = new Promise((_, reject) => {

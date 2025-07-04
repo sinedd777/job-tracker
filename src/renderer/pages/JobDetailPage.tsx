@@ -10,27 +10,19 @@ interface Job {
   appliedDate: string;
   location: string;
   salary?: string;
+  description?: string;
+  summary?: string;
+  jobType?: string;
+  source?: string;
+  url?: string;
+  requirements?: string[];
+  benefits?: string[];
 }
 
 interface Note {
   id: string;
   content: string;
   createdAt: string;
-}
-
-interface Reminder {
-  id: string;
-  title: string;
-  dueDate: string;
-  completed: boolean;
-}
-
-interface Communication {
-  id: string;
-  type: string;
-  content: string;
-  date: string;
-  contact?: string;
 }
 
 const JobDetailPage: React.FC = () => {
@@ -44,14 +36,6 @@ const JobDetailPage: React.FC = () => {
     window.api.getNotes(id!)
   );
 
-  const { data: reminders = [] } = useQuery<Reminder[]>(['reminders', id], () =>
-    window.api.getReminders(id!)
-  );
-
-  const { data: communications = [] } = useQuery<Communication[]>(['communications', id], () =>
-    window.api.getCommunications(id!)
-  );
-
   if (isLoading || !job) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -63,7 +47,7 @@ const JobDetailPage: React.FC = () => {
   return (
     <div className="space-y-8">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{job.title}</h1>
             <p className="text-lg text-gray-600 dark:text-gray-400">{job.company}</p>
@@ -82,27 +66,90 @@ const JobDetailPage: React.FC = () => {
             {job.status}
           </span>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+
+        {job.summary && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Summary</h2>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <p className="text-gray-700 dark:text-gray-300">{job.summary}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Location</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Location</p>
             <p className="text-gray-900 dark:text-white">{job.location}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Applied Date</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Applied Date</p>
             <p className="text-gray-900 dark:text-white">
               {new Date(job.appliedDate).toLocaleDateString()}
             </p>
           </div>
           {job.salary && (
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Salary</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Salary Range</p>
               <p className="text-gray-900 dark:text-white">{job.salary}</p>
             </div>
           )}
+          {job.jobType && (
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Job Type</p>
+              <p className="text-gray-900 dark:text-white">{job.jobType}</p>
+            </div>
+          )}
+          {job.source && (
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Source</p>
+              <p className="text-gray-900 dark:text-white">{job.source}</p>
+            </div>
+          )}
         </div>
+
+        {job.description && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Description</h2>
+            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">{job.description}</p>
+          </div>
+        )}
+
+        {job.requirements && job.requirements.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Requirements</h2>
+            <ul className="list-disc list-inside space-y-1">
+              {job.requirements.map((req, index) => (
+                <li key={index} className="text-gray-700 dark:text-gray-300">{req}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {job.benefits && job.benefits.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Benefits</h2>
+            <ul className="list-disc list-inside space-y-1">
+              {job.benefits.map((benefit, index) => (
+                <li key={index} className="text-gray-700 dark:text-gray-300">{benefit}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {job.url && (
+          <div className="mt-4">
+            <a
+              href={job.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              View Original Job Posting →
+            </a>
+          </div>
+        )}
       </div>
 
-      {/* Notes Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Notes</h2>
         <div className="space-y-4">
@@ -111,68 +158,6 @@ const JobDetailPage: React.FC = () => {
               <p className="text-gray-900 dark:text-white">{note.content}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                 {new Date(note.createdAt).toLocaleString()}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Reminders Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Reminders</h2>
-        <div className="space-y-4">
-          {reminders.map((reminder: Reminder) => (
-            <div
-              key={reminder.id}
-              className={`flex items-center justify-between p-4 rounded-lg ${
-                reminder.completed
-                  ? 'bg-gray-50 dark:bg-gray-700'
-                  : 'bg-white dark:bg-gray-800'
-              }`}
-            >
-              <div>
-                <p className="text-gray-900 dark:text-white">{reminder.title}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Due: {new Date(reminder.dueDate).toLocaleString()}
-                </p>
-              </div>
-              <span
-                className={`px-2 py-1 text-sm rounded ${
-                  reminder.completed
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                }`}
-              >
-                {reminder.completed ? 'Completed' : 'Pending'}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Communications Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Communications</h2>
-        <div className="space-y-4">
-          {communications.map((comm: Communication) => (
-            <div key={comm.id} className="border-b border-gray-200 dark:border-gray-700 pb-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-gray-900 dark:text-white">{comm.content}</p>
-                  {comm.contact && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Contact: {comm.contact}
-                    </p>
-                  )}
-                </div>
-                <span
-                  className="px-2 py-1 text-sm rounded bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                >
-                  {comm.type}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                {new Date(comm.date).toLocaleString()}
               </p>
             </div>
           ))}
