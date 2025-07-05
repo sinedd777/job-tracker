@@ -9,17 +9,16 @@ interface EvalLogEntry {
 }
 
 async function evaluateRAGLogs() {
-  const userDataDir = join(require('electron').app.getPath('userData')); // fallback when run as script outside electron may fail
-  const logPath = join(userDataDir, 'rag-data', 'rag-eval-logs.jsonl');
+  const userDataDir = join(await import('electron').then(electron => electron.app.getPath('userData')), 'rag-data', 'rag-eval-logs.jsonl');
 
-  if (!existsSync(logPath)) {
+  if (!existsSync(userDataDir)) {
     console.error('No evaluation logs found');
     return;
   }
 
   const secret = process.env.DATA_ENCRYPTION_KEY;
 
-  const lines = readFileSync(logPath, 'utf-8').trim().split('\n');
+  const lines = readFileSync(userDataDir, 'utf-8').trim().split('\n');
   const entries: EvalLogEntry[] = lines.map((l) => {
     const str = secret ? decryptString(l, secret) : l;
     return JSON.parse(str);
