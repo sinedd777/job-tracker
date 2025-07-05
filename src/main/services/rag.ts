@@ -17,6 +17,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { encryptString, decryptString } from '../utils/encryption';
 
 // Load environment variables
 dotenv.config();
@@ -185,6 +186,11 @@ class RAGService {
         throw new Error('Documents metadata missing');
       }
 
+      const rawEnc = readFileSync(documentsPath, 'utf-8');
+      const secret = process.env.DATA_ENCRYPTION_KEY;
+      const jsonStr = secret ? decryptString(rawEnc, secret) : rawEnc;
+      const documents = JSON.parse(jsonStr);
+
       const embeddingsObject = await this.getEmbeddingsObject();
 
       const { FaissStore } = await import('@langchain/community/vectorstores/faiss');
@@ -202,7 +208,10 @@ class RAGService {
     try {
       // Save documents
       const documentsPath = join(this.vectorsDir, 'documents.json');
-      writeFileSync(documentsPath, JSON.stringify(documents), 'utf-8');
+      const secret = process.env.DATA_ENCRYPTION_KEY;
+      const dataStr = JSON.stringify(documents);
+      const toWrite = secret ? encryptString(dataStr, secret) : dataStr;
+      writeFileSync(documentsPath, toWrite, 'utf-8');
 
       // Save vector store
       if (this.vectorStore) {
@@ -381,8 +390,10 @@ class RAGService {
         let existingDocCount = 0;
         if (existsSync(existingDocsPath)) {
           try {
-            const raw = readFileSync(existingDocsPath, 'utf-8');
-            existingDocCount = JSON.parse(raw).length;
+            const rawEnc = readFileSync(existingDocsPath, 'utf-8');
+            const secret = process.env.DATA_ENCRYPTION_KEY;
+            const jsonStr = secret ? decryptString(rawEnc, secret) : rawEnc;
+            existingDocCount = JSON.parse(jsonStr).length;
           } catch {
             existingDocCount = 0;
           }

@@ -3,6 +3,7 @@ import { join } from 'path';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { app } from 'electron';
 import dotenv from 'dotenv';
+import { encryptString, decryptString } from '../utils/encryption';
 
 // Load environment variables, prioritizing .env.local
 dotenv.config({ path: join(process.cwd(), '.env.local') });
@@ -111,7 +112,10 @@ class GitHubService {
         };
 
         const repoPath = join(this.reposDir, `${repo.name}.json`);
-        writeFileSync(repoPath, JSON.stringify(repoData, null, 2), 'utf-8');
+        const secret = process.env.DATA_ENCRYPTION_KEY;
+        const dataStr = JSON.stringify(repoData, null, 2);
+        const toWrite = secret ? encryptString(dataStr, secret) : dataStr;
+        writeFileSync(repoPath, toWrite, 'utf-8');
       }
 
       // Update last sync time
@@ -169,7 +173,10 @@ class GitHubService {
       if (!existsSync(repoPath)) {
         return null;
       }
-      return JSON.parse(readFileSync(repoPath, 'utf-8'));
+      const raw = readFileSync(repoPath, 'utf-8');
+      const secret = process.env.DATA_ENCRYPTION_KEY;
+      const jsonStr = secret ? decryptString(raw, secret) : raw;
+      return JSON.parse(jsonStr);
     } catch (error) {
       return null;
     }
@@ -185,7 +192,10 @@ class GitHubService {
       for (const file of repoFiles) {
         if (file.endsWith('.json')) {
           const repoPath = join(this.reposDir, file);
-          const repoData = JSON.parse(readFileSync(repoPath, 'utf-8'));
+          const raw = readFileSync(repoPath, 'utf-8');
+          const secret = process.env.DATA_ENCRYPTION_KEY;
+          const jsonStr = secret ? decryptString(raw, secret) : raw;
+          const repoData = JSON.parse(jsonStr);
           repos.push(repoData);
         }
       }
