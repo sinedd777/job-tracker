@@ -1,9 +1,9 @@
-import { Octokit } from '@octokit/rest';
 import { join } from 'path';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { app } from 'electron';
 import dotenv from 'dotenv';
 import { encryptString, decryptString } from '../utils/encryption';
+import type { Octokit } from '@octokit/rest';
 
 // Load environment variables, prioritizing .env.local
 dotenv.config({ path: join(process.cwd(), '.env.local') });
@@ -19,21 +19,16 @@ interface RepoData {
 }
 
 class GitHubService {
-  private octokit: Octokit;
+  private octokit: Octokit | null = null;
   private dataDir: string;
   private reposDir: string;
   private username: string;
+  private token: string | undefined;
 
   constructor() {
-    // Get GitHub token and username from environment variables
-    const token = process.env.GITHUB_TOKEN;
+    this.token = process.env.GITHUB_TOKEN;
     this.username = process.env.GITHUB_USERNAME || '';
     
-    // Initialize Octokit with token if available
-    this.octokit = new Octokit({
-      auth: token,
-    });
-
     // Set up data directories
     this.dataDir = join(app.getPath('userData'), 'github-data');
     this.reposDir = join(this.dataDir, 'repos');
@@ -51,6 +46,16 @@ class GitHubService {
     return this.username || process.env.GITHUB_USERNAME || '';
   }
 
+  /**
+   * Lazily import and instantiate Octokit to avoid CommonJS/ESM interop issues at load time.
+   */
+  private async getOctokit(): Promise<Octokit> {
+    if (this.octokit) return this.octokit;
+    const { Octokit } = await import('@octokit/rest');
+    this.octokit = new Octokit({ auth: this.token });
+    return this.octokit;
+  }
+
   public async fetchAndStoreUserRepos(): Promise<string[]> {
     const username = this.getUsername();
     
@@ -59,8 +64,10 @@ class GitHubService {
     }
 
     try {
+      const octokit = await this.getOctokit();
+      
       // Fetch user repositories
-      const { data: repos } = await this.octokit.repos.listForUser({
+      const { data: repos } = await octokit.repos.listForUser({
         username,
         sort: 'updated',
         per_page: 100,
@@ -78,7 +85,7 @@ class GitHubService {
         // Get README content first
         let readme = '';
         try {
-          const { data } = await this.octokit.repos.getReadme({
+          const { data } = await octokit.repos.getReadme({
             owner: username,
             repo: repo.name,
           });
@@ -94,7 +101,7 @@ class GitHubService {
         repoNames.push(repo.name);
         
         // Get languages
-        const { data: languages } = await this.octokit.repos.listLanguages({
+        const { data: languages } = await octokit.repos.listLanguages({
           owner: username,
           repo: repo.name,
         });
