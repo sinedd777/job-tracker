@@ -8,7 +8,7 @@ interface EvalLogEntry {
   response: any;
 }
 
-function evaluateRAGLogs() {
+async function evaluateRAGLogs() {
   const userDataDir = join(require('electron').app.getPath('userData')); // fallback when run as script outside electron may fail
   const logPath = join(userDataDir, 'rag-data', 'rag-eval-logs.jsonl');
 
