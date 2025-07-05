@@ -9,7 +9,6 @@ import {
   type ColumnDef,
   ColumnFiltersState,
   FilterFn,
-  FilterFnOption,
 } from '@tanstack/react-table';
 import { ChevronUp, ChevronDown, Check, X as XIcon, Search } from 'lucide-react';
 import { Combobox, Transition } from '@headlessui/react';

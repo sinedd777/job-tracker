@@ -154,6 +154,8 @@ ipcMain.handle('read-resume-template', () => {
 });
 
 ipcMain.handle('save-and-open-resume', (_event, jobId: string, content: string) => {
+  // Ensure local resume server is running (used when Overleaf pulls \includegraphics or other resources)
+  ensureResumeServer();
   try {
     const fileName = `job-${jobId}.tex`;
     const filePath = join(process.cwd(), 'resumes', fileName);

@@ -14,6 +14,8 @@ import { BaseRetriever } from '@langchain/core/retrievers';
 import { RunnableSequence } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { PromptTemplate } from '@langchain/core/prompts';
+import { OpenAIEmbeddings } from '@langchain/openai';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 
 // Load environment variables
 dotenv.config();
@@ -52,8 +54,10 @@ class RAGService {
   private embedder: any;
   private vectorStore: FaissStore | null = null;
   private llm: ChatOpenAI | null = null;
+  private openAIEmbeddings: OpenAIEmbeddings | null = null;
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
+  private responseCache: Map<string, ResumeImprovementResponse> = new Map();
 
   constructor() {
     console.log('Initializing RAG Service...');
@@ -93,6 +97,14 @@ class RAGService {
         temperature: 0.7,
       });
       console.log('ChatOpenAI initialized successfully');
+
+      // Prefer OpenAI embeddings when API key present
+      try {
+        this.openAIEmbeddings = new OpenAIEmbeddings({ openAIApiKey: apiKey });
+        console.log('OpenAIEmbeddings initialized successfully');
+      } catch (embErr) {
+        console.warn('Failed to initialize OpenAIEmbeddings, falling back to local model:', embErr);
+      }
     } else {
       console.warn('No OpenAI API key found');
     }
@@ -144,21 +156,9 @@ class RAGService {
   private async createVectorStore(): Promise<void> {
     try {
       const documents = await this.prepareDocuments();
-      const embeddings = await this.embedDocuments(documents);
 
-      const embeddingsObject = {
-        embedQuery: async (text: string) => {
-          try {
-            const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
-            return Array.from(data) as number[];
-          } catch (error) {
-            throw error;
-          }
-        },
-        embedDocuments: async (texts: string[]) => {
-          return this.embedDocuments(texts);
-        },
-      };
+      // Fetch embeddings implementation (OpenAI or local) on demand
+      const embeddingsObject = await this.getEmbeddingsObject();
 
       const { FaissStore } = await import('@langchain/community/vectorstores/faiss');
 
@@ -178,18 +178,12 @@ class RAGService {
   private async loadVectorStore(): Promise<void> {
     try {
       const documentsPath = join(this.vectorsDir, 'documents.json');
-      const documentsRaw = readFileSync(documentsPath, 'utf-8');
-      const documents = JSON.parse(documentsRaw);
+      // Ensure documents file exists; actual contents not required for FaissStore.load
+      if (!existsSync(documentsPath)) {
+        throw new Error('Documents metadata missing');
+      }
 
-      const embeddingsObject = {
-        embedQuery: async (text: string) => {
-          const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
-          return Array.from(data) as number[];
-        },
-        embedDocuments: async (texts: string[]) => {
-          return this.embedDocuments(texts);
-        },
-      };
+      const embeddingsObject = await this.getEmbeddingsObject();
 
       const { FaissStore } = await import('@langchain/community/vectorstores/faiss');
 
@@ -219,6 +213,7 @@ class RAGService {
 
   private async prepareDocuments(): Promise<CustomDocument[]> {
     const documents: CustomDocument[] = [];
+    const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 800, chunkOverlap: 100 });
 
     // Add user profile as a document
     if (this.userProfile) {
@@ -269,11 +264,35 @@ class RAGService {
       }
     }
 
-    return documents;
+    // Split large docs into smaller chunks for better retrieval
+    const chunkedDocs: CustomDocument[] = [];
+    for (const doc of documents) {
+      if (doc.pageContent.length > 900) {
+        const chunks = await splitter.splitText(doc.pageContent);
+        chunks.forEach((chunk, idx) => {
+          chunkedDocs.push({
+            pageContent: chunk,
+            metadata: { ...doc.metadata, chunk: idx },
+          } as CustomDocument);
+        });
+      } else {
+        chunkedDocs.push(doc);
+      }
+    }
+
+    return chunkedDocs;
   }
 
   private async embedDocuments(documents: CustomDocument[] | string[]): Promise<number[][]> {
     try {
+      if (this.openAIEmbeddings) {
+        // Delegate embedding to OpenAIEmbeddings implementation
+        const texts = Array.isArray(documents)
+          ? (typeof documents[0] === 'string' ? (documents as string[]) : (documents as CustomDocument[]).map((d) => d.pageContent))
+          : [];
+        return this.openAIEmbeddings.embedDocuments(texts);
+      }
+
       await this.ensureInitialized();
 
       let texts: string[];
@@ -318,6 +337,29 @@ class RAGService {
     } catch (error) {
       throw error;
     }
+  }
+
+  /**
+   * Returns an embeddings implementation compatible with LangChain vector stores.
+   * Prefers OpenAIEmbeddings when available, otherwise falls back to local MiniLM embedder.
+   */
+  private async getEmbeddingsObject(): Promise<any> {
+    if (this.openAIEmbeddings) {
+      return this.openAIEmbeddings;
+    }
+
+    // Ensure local embedder is ready
+    await this.ensureInitialized();
+
+    return {
+      embedQuery: async (text: string) => {
+        const { data } = await this.embedder(text, { pooling: 'mean', normalize: true });
+        return Array.from(data) as number[];
+      },
+      embedDocuments: async (texts: string[]) => {
+        return this.embedDocuments(texts);
+      },
+    };
   }
 
   public async updateVectorStore(): Promise<void> {
@@ -403,6 +445,10 @@ Remember:
   public async generateResumeSuggestions(
     request: ResumeImprovementRequest
   ): Promise<ResumeImprovementResponse> {
+    const cacheKey = `${request.jobTitle}|${request.jobCompany}|${request.jobDescription}`;
+    if (this.responseCache.has(cacheKey)) {
+      return this.responseCache.get(cacheKey)!;
+    }
     console.log('Generating resume suggestions for:', request.jobTitle, 'at', request.jobCompany);
     try {
       console.log('Ensuring RAG service is initialized...');
@@ -415,8 +461,8 @@ Remember:
       // Create retriever with custom configuration
       console.log('Creating retriever...');
       const retriever = this.vectorStore.asRetriever({
-        searchType: 'similarity',
-        k: 5, // Number of documents to retrieve
+        searchType: 'mmr',
+        k: 8, // Increased documents for MMR diversity
       });
       console.log('Retriever created successfully');
 
@@ -436,12 +482,17 @@ Remember:
       const response = JSON.parse(result);
       console.log('Response parsed successfully');
       
-      return {
+      const finalResponse: ResumeImprovementResponse = {
         suggestions: response.suggestions || [],
         relevantProjects: response.relevantProjects || [],
         skillsToHighlight: response.skillsToHighlight || [],
         experienceToHighlight: response.experienceToHighlight || [],
       };
+
+      // Cache for future identical requests
+      this.responseCache.set(cacheKey, finalResponse);
+
+      return finalResponse;
     } catch (error) {
       console.error('Error in generateResumeSuggestions:', error);
       if (error instanceof Error) {
