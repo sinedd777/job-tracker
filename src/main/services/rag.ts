@@ -188,8 +188,8 @@ class RAGService {
 
       const rawEnc = readFileSync(documentsPath, 'utf-8');
       const secret = process.env.DATA_ENCRYPTION_KEY;
-      const jsonStr = secret ? decryptString(rawEnc, secret) : rawEnc;
-      const documents = JSON.parse(jsonStr);
+      // Decrypt once to validate format; result not needed further
+      void (secret ? decryptString(rawEnc, secret) : rawEnc);
 
       const embeddingsObject = await this.getEmbeddingsObject();
 
@@ -392,8 +392,8 @@ class RAGService {
           try {
             const rawEnc = readFileSync(existingDocsPath, 'utf-8');
             const secret = process.env.DATA_ENCRYPTION_KEY;
-            const jsonStr = secret ? decryptString(rawEnc, secret) : rawEnc;
-            existingDocCount = JSON.parse(jsonStr).length;
+            const jsonStrCount = secret ? decryptString(rawEnc, secret) : rawEnc;
+            existingDocCount = JSON.parse(jsonStrCount).length;
           } catch {
             existingDocCount = 0;
           }
