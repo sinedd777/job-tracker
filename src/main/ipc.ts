@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { jobsDataService } from './services/jobsData';
 import db from '../database';
 import { writeFileSync, readFileSync } from 'fs';
@@ -7,6 +7,12 @@ import { shell } from 'electron';
 import { createServer, Server } from 'http';
 import { githubService } from './services/github';
 import { ragService } from './services/rag';
+
+// Payload type definitions
+interface JobStatusUpdate { status: string; }
+interface NotePayload { content: string; }
+interface ReminderPayload { title: string; dueDate: string; }
+interface CommunicationPayload { type: string; content: string; date?: string; contact?: string; }
 
 // Job operations
 ipcMain.handle('get-jobs', () => {
@@ -29,12 +35,12 @@ ipcMain.handle('get-historical-jobs', () => {
   return jobsDataService.getHistoricalJobs();
 });
 
-ipcMain.handle('update-job', (_, jobId: string, data: any) => {
+ipcMain.handle('update-job', (_evt: IpcMainInvokeEvent, jobId: string, data: JobStatusUpdate) => {
   return jobsDataService.updateJobStatus(jobId, data.status);
 });
 
 // Note operations
-ipcMain.handle('add-note', (_, jobId: string, note: any) => {
+ipcMain.handle('add-note', (_evt: IpcMainInvokeEvent, jobId: string, note: NotePayload) => {
   const stmt = db.prepare(`
     INSERT INTO notes (id, job_id, content, created_at)
     VALUES (@id, @jobId, @content, @createdAt)
@@ -53,7 +59,7 @@ ipcMain.handle('get-notes', (_, jobId: string) => {
 });
 
 // Reminder operations
-ipcMain.handle('add-reminder', (_, jobId: string, reminder: any) => {
+ipcMain.handle('add-reminder', (_evt: IpcMainInvokeEvent, jobId: string, reminder: ReminderPayload) => {
   const stmt = db.prepare(`
     INSERT INTO reminders (id, job_id, title, due_date, completed)
     VALUES (@id, @jobId, @title, @dueDate, @completed)
@@ -73,7 +79,7 @@ ipcMain.handle('get-reminders', (_, jobId: string) => {
 });
 
 // Communication operations
-ipcMain.handle('add-communication', (_, jobId: string, communication: any) => {
+ipcMain.handle('add-communication', (_evt: IpcMainInvokeEvent, jobId: string, communication: CommunicationPayload) => {
   const stmt = db.prepare(`
     INSERT INTO communications (id, job_id, type, content, date, contact)
     VALUES (@id, @jobId, @type, @content, @date, @contact)
@@ -153,7 +159,7 @@ ipcMain.handle('read-resume-template', () => {
   }
 });
 
-ipcMain.handle('save-and-open-resume', (_event, jobId: string, content: string) => {
+ipcMain.handle('save-and-open-resume', (_event: IpcMainInvokeEvent, jobId: string, content: string) => {
   // Ensure local resume server is running (used when Overleaf pulls \includegraphics or other resources)
   ensureResumeServer();
   try {
@@ -174,7 +180,7 @@ ipcMain.handle('save-and-open-resume', (_event, jobId: string, content: string) 
 });
 
 // Generate cold email using OpenAI
-ipcMain.handle('generate-cold-email', async (_event, args: { jobId: string; model?: string }) => {
+ipcMain.handle('generate-cold-email', async (_event: IpcMainInvokeEvent, args: { jobId: string; model?: string }) => {
   const { jobId, model = 'gpt-4o' } = args;
 
   try {
@@ -296,7 +302,7 @@ ipcMain.handle('update-rag-vector-store', async () => {
   return ragService.updateVectorStore();
 });
 
-ipcMain.handle('generate-resume-suggestions', async (_event, args: { jobId: string }) => {
+ipcMain.handle('generate-resume-suggestions', async (_event: IpcMainInvokeEvent, args: { jobId: string }) => {
   const { jobId } = args;
   
   try {
