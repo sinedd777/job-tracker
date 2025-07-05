@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-catch */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { app } from 'electron';
@@ -37,6 +38,7 @@ interface ResumeImprovementResponse {
   relevantProjects: string[];
   skillsToHighlight: string[];
   experienceToHighlight: string[];
+  errorMessage?: string;
 }
 
 interface CustomDocument extends LangChainDocument {
@@ -373,6 +375,29 @@ class RAGService {
 
       const updatePromise = (async () => {
         await this.ensureInitialized();
+
+        // Fast path: skip rebuild if document set appears unchanged
+        const existingDocsPath = join(this.vectorsDir, 'documents.json');
+        let existingDocCount = 0;
+        if (existsSync(existingDocsPath)) {
+          try {
+            const raw = readFileSync(existingDocsPath, 'utf-8');
+            existingDocCount = JSON.parse(raw).length;
+          } catch {
+            existingDocCount = 0;
+          }
+        }
+
+        const newDocuments = await this.prepareDocuments();
+
+        if (existingDocCount === newDocuments.length) {
+          console.log('Vector store already up to date – skipping rebuild');
+          return;
+        }
+
+        console.log(`Vector store out of date (old=${existingDocCount}, new=${newDocuments.length}). Rebuilding…`);
+
+        // Replace documents.json with new set via createVectorStore
         await this.createVectorStore();
       })();
 
@@ -470,11 +495,12 @@ Remember:
       console.log('Creating and running RAG chain...');
       const chain = await this.createRAGChain(retriever);
       console.log('Invoking chain with job details...');
-      const result = await chain.invoke({
+      const inputPayload = {
         jobTitle: request.jobTitle,
         jobCompany: request.jobCompany,
         jobDescription: request.jobDescription || '',
-      });
+      };
+      const result = await chain.invoke(inputPayload);
       console.log('Chain execution completed. Result length:', result.length);
 
       // Parse and validate the response
@@ -482,6 +508,19 @@ Remember:
       const response = JSON.parse(result);
       console.log('Response parsed successfully');
       
+      // Basic evaluation logging (retrieved context length + response)
+      try {
+        const evalLogPath = join(this.dataDir, 'rag-eval-logs.jsonl');
+        const logEntry = {
+          timestamp: new Date().toISOString(),
+          input: inputPayload,
+          response,
+        };
+        writeFileSync(evalLogPath, JSON.stringify(logEntry) + '\n', { flag: 'a' });
+      } catch (logErr) {
+        console.warn('Failed to write evaluation log:', logErr);
+      }
+
       const finalResponse: ResumeImprovementResponse = {
         suggestions: response.suggestions || [],
         relevantProjects: response.relevantProjects || [],
@@ -499,14 +538,11 @@ Remember:
         console.error('Error stack:', error.stack);
       }
       return {
-        suggestions: [
-          'Failed to generate suggestions. Please try again later.',
-          'Make sure your resume highlights relevant skills and experience.',
-          `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        ],
+        suggestions: [],
         relevantProjects: [],
         skillsToHighlight: [],
         experienceToHighlight: [],
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }

@@ -1,6 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import { join } from 'path';
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { app } from 'electron';
 import dotenv from 'dotenv';
 
@@ -143,7 +143,7 @@ class GitHubService {
       if (!trimmedLine) continue;
       
       // Look for a header (# style or === style)
-      if (trimmedLine.startsWith('#') || /^[=\-]{3,}$/.test(trimmedLine)) {
+      if (trimmedLine.startsWith('#') || /^[=-]{3,}$/.test(trimmedLine)) {
         foundFirstHeader = true;
         continue;
       }
@@ -179,7 +179,7 @@ class GitHubService {
     try {
       const repos: RepoData[] = [];
       const repoFiles = existsSync(this.reposDir) 
-        ? require('fs').readdirSync(this.reposDir)
+        ? readdirSync(this.reposDir)
         : [];
       
       for (const file of repoFiles) {

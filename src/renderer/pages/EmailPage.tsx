@@ -21,6 +21,9 @@ const EmailPage: React.FC = () => {
   const { data: jobs } = useQuery<Job[]>(['jobs'], () => window.api.getJobs());
   const job = jobs?.find((j) => j.id === id);
 
+  // State for copy indicator (must be declared before any early returns to satisfy hooks rule)
+  const [copied, setCopied] = useState(false);
+
   // Generate cold email when job/id available (hook must be unconditional)
   const {
     data: emailText,
@@ -55,8 +58,6 @@ const EmailPage: React.FC = () => {
       </div>
     );
   }
-
-  const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
     if (!emailText) return;
