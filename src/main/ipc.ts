@@ -15,23 +15,23 @@ interface ReminderPayload { title: string; dueDate: string; }
 interface CommunicationPayload { type: string; content: string; date?: string; contact?: string; }
 
 // Job operations
-ipcMain.handle('get-jobs', () => {
+ipcMain.handle('get-jobs', (_evt: IpcMainInvokeEvent) => {
   return jobsDataService.getJobs();
 });
 
-ipcMain.handle('get-recent-jobs', () => {
+ipcMain.handle('get-recent-jobs', (_evt: IpcMainInvokeEvent) => {
   return jobsDataService.getRecentJobs();
 });
 
-ipcMain.handle('get-new-jobs', () => {
+ipcMain.handle('get-new-jobs', (_evt: IpcMainInvokeEvent) => {
   return jobsDataService.getNewJobs();
 });
 
-ipcMain.handle('get-recent-new-jobs', () => {
+ipcMain.handle('get-recent-new-jobs', (_evt: IpcMainInvokeEvent) => {
   return jobsDataService.getRecentNewJobs();
 });
 
-ipcMain.handle('get-historical-jobs', () => {
+ipcMain.handle('get-historical-jobs', (_evt: IpcMainInvokeEvent) => {
   return jobsDataService.getHistoricalJobs();
 });
 
@@ -54,7 +54,7 @@ ipcMain.handle('add-note', (_evt: IpcMainInvokeEvent, jobId: string, note: NoteP
   });
 });
 
-ipcMain.handle('get-notes', (_, jobId: string) => {
+ipcMain.handle('get-notes', (_evt: IpcMainInvokeEvent, jobId: string) => {
   return db.prepare('SELECT * FROM notes WHERE job_id = ? ORDER BY created_at DESC').all(jobId);
 });
 
@@ -74,7 +74,7 @@ ipcMain.handle('add-reminder', (_evt: IpcMainInvokeEvent, jobId: string, reminde
   });
 });
 
-ipcMain.handle('get-reminders', (_, jobId: string) => {
+ipcMain.handle('get-reminders', (_evt: IpcMainInvokeEvent, jobId: string) => {
   return db.prepare('SELECT * FROM reminders WHERE job_id = ? ORDER BY due_date ASC').all(jobId);
 });
 
@@ -95,27 +95,27 @@ ipcMain.handle('add-communication', (_evt: IpcMainInvokeEvent, jobId: string, co
   });
 });
 
-ipcMain.handle('get-communications', (_, jobId: string) => {
+ipcMain.handle('get-communications', (_evt: IpcMainInvokeEvent, jobId: string) => {
   return db.prepare('SELECT * FROM communications WHERE job_id = ? ORDER BY date DESC').all(jobId);
 });
 
 // Sync operations
-ipcMain.handle('sync-jobs', () => {
+ipcMain.handle('sync-jobs', (_evt: IpcMainInvokeEvent) => {
   return jobsDataService.syncJobs();
 });
 
-ipcMain.handle('sync-recent-jobs-from-supabase', async () => {
+ipcMain.handle('sync-recent-jobs-from-supabase', async (_evt: IpcMainInvokeEvent) => {
   return jobsDataService.syncRecentJobsFromSupabase();
 });
 
 // App operations
 let isDarkMode = false;
 
-ipcMain.handle('get-dark-mode', (): boolean => {
+ipcMain.handle('get-dark-mode', (_evt: IpcMainInvokeEvent): boolean => {
   return isDarkMode;
 });
 
-ipcMain.handle('toggle-dark-mode', (): boolean => {
+ipcMain.handle('toggle-dark-mode', (_evt: IpcMainInvokeEvent): boolean => {
   isDarkMode = !isDarkMode;
   return isDarkMode;
 });
@@ -150,7 +150,7 @@ const ensureResumeServer = () => {
   });
 };
 
-ipcMain.handle('read-resume-template', () => {
+ipcMain.handle('read-resume-template', (_evt: IpcMainInvokeEvent) => {
   try {
     return readFileSync(join(process.cwd(), 'resumes', 'base-resume.tex'), 'utf-8');
   } catch (error) {
@@ -293,12 +293,12 @@ Return only the final cold email in plain text. No explanations, no bullet point
 });
 
 // GitHub operations (only get status, no UI controls)
-ipcMain.handle('get-github-last-sync', () => {
+ipcMain.handle('get-github-last-sync', (_evt: IpcMainInvokeEvent) => {
   return githubService.getLastSyncTime();
 });
 
 // RAG operations
-ipcMain.handle('update-rag-vector-store', async () => {
+ipcMain.handle('update-rag-vector-store', async (_evt: IpcMainInvokeEvent) => {
   return ragService.updateVectorStore();
 });
 
