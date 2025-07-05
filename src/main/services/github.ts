@@ -3,7 +3,7 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 
 import { app } from 'electron';
 import dotenv from 'dotenv';
 import { encryptString, decryptString } from '../utils/encryption';
-import type { Octokit } from '@octokit/rest';
+import type { Octokit } from '@octokit/rest' assert { "resolution-mode": "import" };
 
 // Load environment variables, prioritizing .env.local
 dotenv.config({ path: join(process.cwd(), '.env.local') });
