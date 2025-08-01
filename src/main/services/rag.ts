@@ -30,11 +30,33 @@ interface ResumeImprovementRequest {
   baseResume: string;
 }
 
+interface ReplacementSuggestion {
+  sectionName: string;          // e.g., "Experience", "Skills", "Projects"
+  currentContent: string;       // What's currently in the resume that should be replaced
+  suggestedContent: string;     // What to replace it with
+  reason: string;              // Why this replacement is recommended
+  lineNumbers?: string;        // Optional line numbers in the LaTeX file
+}
+
 interface ResumeImprovementResponse {
-  suggestions: string[];
+  replacements: ReplacementSuggestion[];
+  suggestions: string[];       // Keep for backward compatibility
   relevantProjects: string[];
   skillsToHighlight: string[];
   experienceToHighlight: string[];
+}
+
+interface ExperienceItemRewriteResponse {
+  experienceReplacements: ReplacementSuggestion[];
+}
+
+interface ProjectHighlightResponse {
+  projectRecommendations: Array<{
+    projectTitle: string;
+    reason: string;
+    priority: 'high' | 'medium' | 'low';
+    suggestedPlacement: string; // Where in resume to place it
+  }>;
 }
 
 interface CustomDocument extends LangChainDocument {
@@ -52,6 +74,7 @@ class RAGService {
   private embedder: any;
   private vectorStore: FaissStore | null = null;
   private llm: ChatOpenAI | null = null;
+  private llmO3: ChatOpenAI | null = null;
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
 
@@ -93,6 +116,14 @@ class RAGService {
         temperature: 0.7,
       });
       console.log('ChatOpenAI initialized successfully');
+
+      // Initialize O3 model for specialized suggestions
+      console.log('Initializing ChatOpenAI O3...');
+      this.llmO3 = new ChatOpenAI({
+        openAIApiKey: apiKey,
+        modelName: 'o3',
+      });
+      console.log('ChatOpenAI O3 initialized successfully');
     } else {
       console.warn('No OpenAI API key found');
     }
@@ -342,30 +373,54 @@ class RAGService {
 
   private createRAGPromptTemplate(): PromptTemplate {
     return PromptTemplate.fromTemplate(`
-You are an expert resume consultant. Use the following retrieved information about the candidate to generate resume suggestions.
+You are an expert resume consultant. Analyze the candidate's resume content and provide specific replacement suggestions.
 
 Context from retrieved documents:
 {context}
+
+Current Resume Content:
+{baseResume}
 
 Job Details:
 Title: {jobTitle}
 Company: {jobCompany}
 Description: {jobDescription}
 
-Based ONLY on the retrieved context above, provide specific suggestions for improving the resume.
-Each suggestion must be explicitly supported by information from the context.
-If you need information that's not in the context, acknowledge the gap.
+TASK: Analyze the current resume and provide specific replacement suggestions. For each suggestion, identify:
+1. EXACTLY what current content should be replaced (quote the exact text)
+2. EXACTLY what it should be replaced with
+3. WHY this replacement makes the candidate more competitive for this specific job
+
+Use ONLY information from the retrieved context. If the context doesn't contain relevant information for a replacement, don't suggest it.
 
 Format your response as a JSON object with these keys:
-- suggestions: Array of specific improvements, each citing the supporting context
-- relevantProjects: Array of project names from the context that match job requirements
-- skillsToHighlight: Array of skills found in both context and job requirements
-- experienceToHighlight: Array of relevant experience entries from the context
+
+- replacements: Array of objects with:
+  * sectionName: The resume section (e.g., "Experience", "Skills", "Education", "Projects")
+  * currentContent: The exact text from the resume that should be replaced
+  * suggestedContent: The improved replacement text
+  * reason: Why this replacement is better for this specific job role
+  * lineNumbers: If identifiable, the approximate line numbers or LaTeX section
+
+- suggestions: Array of general improvement suggestions
+- relevantProjects: Array of project names from context that should be emphasized
+- skillsToHighlight: Array of skills to emphasize based on job requirements
+- experienceToHighlight: Array of experience entries to emphasize
+
+EXAMPLE REPLACEMENT:
+{{
+  "sectionName": "Experience",
+  "currentContent": "Developed web applications using React",
+  "suggestedContent": "Built scalable React applications handling 10k+ daily users, implementing GraphQL APIs and real-time data synchronization",
+  "reason": "Adds quantifiable impact and mentions specific technologies (GraphQL) mentioned in the job requirements",
+  "lineNumbers": "Lines 45-47"
+}}
 
 Remember:
-1. Only use information from the provided context
-2. Be specific about which parts of the context support each suggestion
-3. Focus on matching the candidate's experience with job requirements
+1. Only suggest replacements where you have specific evidence from the context
+2. Make replacements job-specific and impactful
+3. Include metrics and quantifiable achievements when available in context
+4. Focus on content that directly addresses job requirements
 `);
   }
 
@@ -387,6 +442,7 @@ Remember:
           console.log('Combined context length:', context.length);
           return context;
         },
+        baseResume: (input: any) => input.baseResume,
         jobTitle: (input: any) => input.jobTitle,
         jobCompany: (input: any) => input.jobCompany,
         jobDescription: (input: any) => input.jobDescription,
@@ -428,6 +484,7 @@ Remember:
         jobTitle: request.jobTitle,
         jobCompany: request.jobCompany,
         jobDescription: request.jobDescription || '',
+        baseResume: request.baseResume,
       });
       console.log('Chain execution completed. Result length:', result.length);
 
@@ -437,6 +494,7 @@ Remember:
       console.log('Response parsed successfully');
       
       return {
+        replacements: response.replacements || [],
         suggestions: response.suggestions || [],
         relevantProjects: response.relevantProjects || [],
         skillsToHighlight: response.skillsToHighlight || [],
@@ -448,6 +506,7 @@ Remember:
         console.error('Error stack:', error.stack);
       }
       return {
+        replacements: [],
         suggestions: [
           'Failed to generate suggestions. Please try again later.',
           'Make sure your resume highlights relevant skills and experience.',
@@ -456,6 +515,178 @@ Remember:
         relevantProjects: [],
         skillsToHighlight: [],
         experienceToHighlight: [],
+      };
+    }
+  }
+
+  public async rewriteExperienceItems(
+    request: ResumeImprovementRequest
+  ): Promise<ExperienceItemRewriteResponse> {
+    console.log('Rewriting experience items using O3 for:', request.jobTitle, 'at', request.jobCompany);
+    try {
+      await this.ensureInitialized();
+
+      if (!this.vectorStore || !this.llmO3) {
+        throw new Error('RAG service or O3 model not properly initialized');
+      }
+
+      // Create retriever for relevant context
+      const retriever = this.vectorStore.asRetriever({
+        searchType: 'similarity',
+        k: 8, // Get more context for better experience rewriting
+      });
+
+      // Get relevant documents
+      const relevantDocs = await retriever.getRelevantDocuments(request.jobDescription || '');
+      const context = (relevantDocs as unknown as CustomDocument[])
+        .map((doc) => doc.pageContent)
+        .join('\n\n');
+
+      const prompt = `You are an expert resume writer specializing in rewriting experience bullet points to maximize impact for specific job applications.
+
+CONTEXT from candidate's background:
+${context}
+
+CURRENT RESUME EXPERIENCE SECTION:
+${request.baseResume}
+
+TARGET JOB:
+Title: ${request.jobTitle}
+Company: ${request.jobCompany}
+Description: ${request.jobDescription}
+
+TASK: Analyze each \\item in the Experience section and provide improved replacements that:
+1. Use stronger action verbs and quantifiable metrics
+2. Align with the target job requirements
+3. Incorporate relevant technologies/skills mentioned in the job description
+4. Follow the STAR method (Situation, Task, Action, Result) when possible
+
+RULES:
+- ONLY rewrite \\item entries from the Experience section
+- Preserve the LaTeX formatting (keep \\item prefix)
+- Make each bullet point more impactful and job-specific
+- Include quantifiable achievements when possible
+- Use keywords from the job description naturally
+- Keep the same general structure but enhance content
+
+Return a JSON object with this structure:
+{
+  "experienceReplacements": [
+    {
+      "sectionName": "Experience",
+      "currentContent": "\\item Exact current bullet point text",
+      "suggestedContent": "\\item Enhanced bullet point with metrics and impact",
+      "reason": "Detailed explanation of why this change makes the candidate more competitive",
+      "lineNumbers": "Approximate line numbers in LaTeX"
+    }
+  ]
+}
+
+Focus on transforming weak bullet points into powerful, quantified achievements that demonstrate value and relevance to the target role.`;
+
+      console.log('Invoking O3 for experience rewriting...');
+      const result = await this.llmO3.invoke([
+        { role: 'system', content: 'You are an expert resume optimization specialist with deep knowledge of ATS systems and hiring manager preferences.' },
+        { role: 'user', content: prompt }
+      ]);
+
+      console.log('O3 experience rewriting completed');
+      const response = JSON.parse(result.content as string);
+      
+      return {
+        experienceReplacements: response.experienceReplacements || [],
+      };
+    } catch (error) {
+      console.error('Error in rewriteExperienceItems:', error);
+      return {
+        experienceReplacements: [],
+      };
+    }
+  }
+
+  public async highlightRelevantProjects(
+    request: ResumeImprovementRequest
+  ): Promise<ProjectHighlightResponse> {
+    console.log('Highlighting relevant projects using O3 for:', request.jobTitle, 'at', request.jobCompany);
+    try {
+      await this.ensureInitialized();
+
+      if (!this.vectorStore || !this.llmO3) {
+        throw new Error('RAG service or O3 model not properly initialized');
+      }
+
+      // Create retriever for project context
+      const retriever = this.vectorStore.asRetriever({
+        searchType: 'similarity',
+        k: 10, // Get comprehensive project information
+      });
+
+      // Get relevant documents
+      const relevantDocs = await retriever.getRelevantDocuments(
+        `${request.jobDescription} projects portfolio work experience`
+      );
+      const context = (relevantDocs as unknown as CustomDocument[])
+        .map((doc) => doc.pageContent)
+        .join('\n\n');
+
+      const prompt = `You are a career strategist specializing in project portfolio optimization for job applications.
+
+CANDIDATE'S PROJECT PORTFOLIO:
+${context}
+
+USER PROFILE:
+${JSON.stringify(this.userProfile, null, 2)}
+
+TARGET JOB:
+Title: ${request.jobTitle}
+Company: ${request.jobCompany}
+Description: ${request.jobDescription}
+
+TASK: Analyze the candidate's projects and recommend which ones to highlight for this specific job application.
+
+Consider:
+1. Technical stack alignment with job requirements
+2. Project complexity and scale that demonstrates relevant skills
+3. Business impact and outcomes that match the role's responsibilities
+4. Innovation and problem-solving aspects valued by the company
+5. Team collaboration vs individual contribution based on role expectations
+
+Return a JSON object with this structure:
+{
+  "projectRecommendations": [
+    {
+      "projectTitle": "Exact project name",
+      "reason": "Detailed explanation of why this project is highly relevant to the target role",
+      "priority": "high|medium|low",
+      "suggestedPlacement": "Where to position this project (e.g., 'First project in Projects section', 'Include in cover letter', 'Mention in experience section')"
+    }
+  ]
+}
+
+Prioritize projects that:
+- Use technologies/frameworks mentioned in the job description
+- Solve similar problems to what the role will entail
+- Demonstrate scale, impact, or complexity appropriate for the seniority level
+- Show leadership, collaboration, or specific skills the job requires
+
+Recommend 3-5 projects maximum, ordered by relevance.`;
+
+      console.log('Invoking O3 for project highlighting...');
+      const result = await this.llmO3.invoke([
+        { role: 'system', content: 'You are an expert career counselor who helps candidates strategically position their projects for maximum impact.' },
+        { role: 'user', content: prompt }
+      ]);
+
+      console.log('O3 project highlighting completed');
+      const response = JSON.parse(result.content as string);
+      
+      return {
+        projectRecommendations: response.projectRecommendations || [],
+      };
+    } catch (error) {
+      console.error('Error in highlightRelevantProjects:', error);
+      return {
+        projectRecommendations: [],
       };
     }
   }

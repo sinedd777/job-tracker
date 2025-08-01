@@ -1,6 +1,8 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { FileUser, Mail } from 'lucide-react';
+import StatusTracker from '../components/StatusTracker';
 
 interface Job {
   id: string;
@@ -19,11 +21,56 @@ interface Job {
   benefits?: string[];
 }
 
-interface Note {
-  id: string;
-  content: string;
-  createdAt: string;
-}
+
+
+// Helper function to format job summary text for better readability
+const formatJobSummary = (text: string): string[] => {
+  if (!text) return [];
+  
+  // Clean up scraped text artifacts
+  const cleanedText = text
+    .replace(/\s*Show more Show less\s*$/i, '') // Remove trailing "Show more Show less"
+    .replace(/\s*JR\d+\s*Show more Show less\s*$/i, '') // Remove job reference + "Show more Show less"
+    .trim();
+  
+  // Split on common sentence endings followed by capital letters (new sentences)
+  // Also split on patterns that indicate new sections like "What You'll Be Doing"
+  const sentences = cleanedText
+    .replace(/\.\s+([A-Z])/g, '.|$1') // Mark sentence boundaries
+    .replace(/(What You'll Be Doing|What We Need To See|Ways To Stand Out)/g, '|$1') // Mark section headers
+    .split('|')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+  
+  const paragraphs: string[] = [];
+  let currentParagraph = '';
+  
+  for (const sentence of sentences) {
+    // If it's a section header, start a new paragraph
+    if (sentence.match(/^(What You'll Be Doing|What We Need To See|Ways To Stand Out)/)) {
+      if (currentParagraph) {
+        paragraphs.push(currentParagraph.trim());
+        currentParagraph = '';
+      }
+      paragraphs.push(sentence);
+    } else {
+      // Add to current paragraph, but break if it gets too long
+      if (currentParagraph.length > 300 && sentence.endsWith('.')) {
+        paragraphs.push(currentParagraph.trim());
+        currentParagraph = sentence;
+      } else {
+        currentParagraph += (currentParagraph ? ' ' : '') + sentence;
+      }
+    }
+  }
+  
+  // Add the last paragraph
+  if (currentParagraph) {
+    paragraphs.push(currentParagraph.trim());
+  }
+  
+  return paragraphs.filter(p => p.length > 0);
+};
 
 const JobDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,9 +79,7 @@ const JobDetailPage: React.FC = () => {
   const job = jobs?.find((j) => j.id === id);
   const isLoading = !jobs;
 
-  const { data: notes = [] } = useQuery<Note[]>(['notes', id], () =>
-    window.api.getNotes(id!)
-  );
+
 
   if (isLoading || !job) {
     return (
@@ -43,7 +88,6 @@ const JobDetailPage: React.FC = () => {
       </div>
     );
   }
-
   return (
     <div className="space-y-8">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -52,26 +96,60 @@ const JobDetailPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{job.title}</h1>
             <p className="text-lg text-gray-600 dark:text-gray-400">{job.company}</p>
           </div>
-          <span
-            className={`px-3 py-1 text-sm rounded-full ${
-              job.status === 'APPLIED'
-                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                : job.status === 'INTERVIEWING'
-                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                : job.status === 'OFFERED'
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-            }`}
-          >
-            {job.status}
-          </span>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex gap-2">
+              <Link 
+                to={`/resume/${job.id}`} 
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-150 gap-1.5"
+              >
+                <FileUser className="w-3.5 h-3.5" />
+                Resume
+              </Link>
+              <Link 
+                to={`/email/${job.id}`} 
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-150 gap-1.5"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                Email
+              </Link>
+            </div>
+            <StatusTracker 
+              jobId={job.id} 
+              currentStatus={job.status} 
+              showLabel={false}
+              className="flex-shrink-0"
+            />
+          </div>
         </div>
 
         {job.summary && (
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Summary</h2>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <p className="text-gray-700 dark:text-gray-300">{job.summary}</p>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-4">
+              {formatJobSummary(job.summary).map((paragraph, index) => {
+                // Check if this paragraph is a section header
+                const isHeader = paragraph.match(/^(What You'll Be Doing|What We Need To See|Ways To Stand Out)/);
+                
+                if (isHeader) {
+                  return (
+                    <h3 
+                      key={index} 
+                      className="text-md font-semibold text-gray-900 dark:text-white mt-6 mb-2"
+                    >
+                      {paragraph}
+                    </h3>
+                  );
+                } else {
+                  return (
+                    <p 
+                      key={index} 
+                      className="text-gray-700 dark:text-gray-300 leading-relaxed"
+                    >
+                      {paragraph}
+                    </p>
+                  );
+                }
+              })}
             </div>
           </div>
         )}
@@ -148,21 +226,7 @@ const JobDetailPage: React.FC = () => {
             </a>
           </div>
         )}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Notes</h2>
-        <div className="space-y-4">
-          {notes.map((note: Note) => (
-            <div key={note.id} className="border-b border-gray-200 dark:border-gray-700 pb-4">
-              <p className="text-gray-900 dark:text-white">{note.content}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                {new Date(note.createdAt).toLocaleString()}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+      </div>      
     </div>
   );
 };

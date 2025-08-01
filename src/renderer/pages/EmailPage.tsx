@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Clipboard, RefreshCcw, Send } from 'lucide-react';
+import { Clipboard, RefreshCcw, Send, ArrowLeft } from 'lucide-react';
+import StatusTracker from '../components/StatusTracker';
 
 interface Job {
   id: string;
@@ -79,10 +80,31 @@ const EmailPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      {/* Navigation */}
+      <div className="flex items-center gap-3">
+        <Link 
+          to={`/job/${job.id}`}
+          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-150 gap-1.5"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to Job
+        </Link>
+      </div>
+
       {/* Job Card */}
       <div className="p-6 bg-white dark:bg-gray-800 rounded shadow flex flex-col gap-1 max-w-xl">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{job.title}</h2>
-        <p className="text-gray-700 dark:text-gray-300">{job.company}</p>
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{job.title}</h2>
+            <p className="text-gray-700 dark:text-gray-300">{job.company}</p>
+          </div>
+          <StatusTracker 
+            jobId={job.id} 
+            currentStatus={job.status} 
+            showLabel={false}
+            className="flex-shrink-0"
+          />
+        </div>
         {job.location && (
           <p className="text-gray-500 dark:text-gray-400 text-sm">{job.location}</p>
         )}

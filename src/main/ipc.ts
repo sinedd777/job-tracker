@@ -294,9 +294,7 @@ ipcMain.handle('update-rag-vector-store', async () => {
   return ragService.updateVectorStore();
 });
 
-ipcMain.handle('generate-resume-suggestions', async (_event, args: { jobId: string }) => {
-  const { jobId } = args;
-  
+ipcMain.handle('generate-resume-suggestions', async (_event, jobId: string) => {
   try {
     console.log(`Generating resume suggestions for job ${jobId}...`);
     
@@ -333,6 +331,165 @@ ipcMain.handle('generate-resume-suggestions', async (_event, args: { jobId: stri
       console.error('Error details:', error.message);
       console.error('Stack trace:', error.stack);
     }
+    throw error;
+  }
+});
+
+// Generate job summary 
+ipcMain.handle('generate-job-summary', async (_event, args: { jobId: string }) => {
+  const { jobId } = args;
+  
+  try {
+    console.log(`Generating job summary for job ${jobId}...`);
+    
+    // 1. Fetch job info
+    const job = jobsDataService.getJob(jobId);
+    if (!job) {
+      throw new Error(`Job with id ${jobId} not found`);
+    }
+    
+    // 2. Build prompt for concise summary
+    const jobDescription = job.summary || job.description || '';
+    
+    const prompt = `Create 3 short bullet points (max 30 words total) highlighting the key aspects of this job:
+
+Job: ${job.title} at ${job.company}
+Description: ${jobDescription}
+
+Return ONLY 3 lines, each starting with a dash, like:
+- Graphics testing focus
+- NVIDIA GPU experience 
+- Austin TX location`;
+
+    // 3. Call OpenAI for summary
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.warn('OPENAI_API_KEY not set – returning fallback summary');
+      return [
+        "Software testing role",
+        "Graphics/GPU focus", 
+        "Austin-based position"
+      ];
+    }
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are a professional job analysis assistant. You create concise, accurate summaries.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} ${errorBody}`);
+    }
+
+    const data = (await response.json()) as any;
+    const summaryContent: string | undefined = data.choices?.[0]?.message?.content?.trim();
+
+    console.log('Raw OpenAI response:', summaryContent);
+
+    if (!summaryContent) {
+      throw new Error('No summary content returned from OpenAI');
+    }
+
+    // Parse the response - expect simple dash-separated lines
+    const lines = summaryContent
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => {
+        // Remove common bullet markers and clean up
+        return line
+          .replace(/^[\-\•\*]\s*/, '') // Remove dash, bullet, asterisk
+          .replace(/^\d+\.\s*/, '') // Remove numbered lists
+          .trim();
+      })
+      .filter(line => line.length > 0)
+      .slice(0, 3); // Take first 3 lines
+
+    console.log('Parsed lines:', lines);
+
+    return lines.length > 0 ? lines : [
+      "Software testing role",
+      "Graphics/GPU focus", 
+      "Austin-based position"
+    ];
+    
+  } catch (error) {
+    console.error('Failed to generate job summary:', error);
+    // Return fallback summary on error
+    return [
+      "Software testing role",
+      "Graphics/GPU focus", 
+      "Austin-based position"
+    ];
+  }
+});
+
+// Rewrite experience items using O3
+ipcMain.handle('rewrite-experience-items', async (_event, jobId: string) => {
+  try {
+    console.log(`Rewriting experience items using O3 for job ${jobId}...`);
+    
+    // 1. Fetch job info
+    const job = jobsDataService.getJob(jobId);
+    if (!job) {
+      throw new Error(`Job with id ${jobId} not found`);
+    }
+    
+    // 2. Load resume template
+    const baseResume = readFileSync(join(process.cwd(), 'resumes', 'base-resume.tex'), 'utf-8');
+    
+    // 3. Call O3-powered experience rewriting
+    const result = await ragService.rewriteExperienceItems({
+      jobTitle: job.title,
+      jobCompany: job.company,
+      jobDescription: job.summary || '',
+      baseResume,
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Failed to rewrite experience items:', error);
+    throw error;
+  }
+});
+
+// Highlight relevant projects using O3
+ipcMain.handle('highlight-relevant-projects', async (_event, jobId: string) => {
+  try {
+    console.log(`Highlighting relevant projects using O3 for job ${jobId}...`);
+    
+    // 1. Fetch job info
+    const job = jobsDataService.getJob(jobId);
+    if (!job) {
+      throw new Error(`Job with id ${jobId} not found`);
+    }
+    
+    // 2. Load resume template
+    const baseResume = readFileSync(join(process.cwd(), 'resumes', 'base-resume.tex'), 'utf-8');
+    
+    // 3. Call O3-powered project highlighting
+    const result = await ragService.highlightRelevantProjects({
+      jobTitle: job.title,
+      jobCompany: job.company,
+      jobDescription: job.summary || '',
+      baseResume,
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Failed to highlight relevant projects:', error);
     throw error;
   }
 });

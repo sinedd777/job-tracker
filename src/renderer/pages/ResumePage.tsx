@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import StatusTracker from '../components/StatusTracker';
 
 interface Job {
   id: string;
@@ -13,11 +14,33 @@ interface Job {
   url?: string;
 }
 
+interface ReplacementSuggestion {
+  sectionName: string;          // e.g., "Experience", "Skills", "Projects"
+  currentContent: string;       // What's currently in the resume that should be replaced
+  suggestedContent: string;     // What to replace it with
+  reason: string;              // Why this replacement is recommended
+  lineNumbers?: string;        // Optional line numbers in the LaTeX file
+}
+
 interface ResumeImprovementResponse {
-  suggestions: string[];
+  replacements: ReplacementSuggestion[];
+  suggestions: string[];       // Keep for backward compatibility
   relevantProjects: string[];
   skillsToHighlight: string[];
   experienceToHighlight: string[];
+}
+
+interface ExperienceItemRewriteResponse {
+  experienceReplacements: ReplacementSuggestion[];
+}
+
+interface ProjectHighlightResponse {
+  projectRecommendations: Array<{
+    projectTitle: string;
+    reason: string;
+    priority: 'high' | 'medium' | 'low';
+    suggestedPlacement: string;
+  }>;
 }
 
 interface SuggestionItem {
@@ -65,7 +88,27 @@ const SuggestionsPanel: React.FC<{
   isLoading: boolean;
   error: Error | null;
   data: ResumeImprovementResponse | undefined;
-}> = ({ isLoading, error, data }) => {
+  experienceRewriteData: ExperienceItemRewriteResponse | undefined;
+  isLoadingExperienceRewrite: boolean;
+  experienceRewriteError: Error | null;
+  projectHighlightData: ProjectHighlightResponse | undefined;
+  isLoadingProjectHighlight: boolean;
+  projectHighlightError: Error | null;
+  onApplyReplacement: (rep: ReplacementSuggestion) => void;
+  hiddenReplacementKeys: Set<string>;
+}> = ({ 
+  isLoading, 
+  error, 
+  data,
+  experienceRewriteData,
+  isLoadingExperienceRewrite,
+  experienceRewriteError,
+  projectHighlightData,
+  isLoadingProjectHighlight,
+    projectHighlightError,
+  onApplyReplacement,
+  hiddenReplacementKeys
+  }) => {
   if (isLoading) {
     return <p className="text-gray-500 dark:text-gray-400">Generating suggestions...</p>;
   }
@@ -115,11 +158,137 @@ const SuggestionsPanel: React.FC<{
     ? data.experienceToHighlight.map(exp => String(exp))
     : [];
 
+  // Extract and display replacement suggestions
+  const replacements = Array.isArray(data.replacements) ? data.replacements : [];
+
   return (
     <div className="space-y-6">
-      {suggestions.length > 0 && (
+      {/* O3-Powered Experience Rewriting */}
+      {isLoadingExperienceRewrite && (
         <div>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Improvements</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🚀 O3 Experience Rewriting</h3>
+          <p className="text-gray-500 dark:text-gray-400">Analyzing and rewriting experience bullets...</p>
+        </div>
+      )}
+      
+      {experienceRewriteError && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🚀 O3 Experience Rewriting</h3>
+          <div className="text-red-500 p-4 rounded-lg bg-red-50 dark:bg-red-900/20">
+            Error: {experienceRewriteError.message}
+          </div>
+        </div>
+      )}
+
+      {experienceRewriteData?.experienceReplacements && experienceRewriteData.experienceReplacements.filter(r=>!hiddenReplacementKeys.has(r.currentContent)).length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🚀 O3 Experience Rewriting</h3>
+          <div className="space-y-4">
+            {experienceRewriteData.experienceReplacements.filter(r=>!hiddenReplacementKeys.has(r.currentContent)).map((replacement, idx) => (
+              <div key={idx} className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-4 shadow-sm border border-purple-200 dark:border-purple-700">
+                <div className="mb-2">
+                  <span className="inline-block px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded text-xs font-medium">
+                    O3 Enhanced • {replacement.sectionName}
+                  </span>
+                  {replacement.lineNumbers && (
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      {replacement.lineNumbers}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded border-l-4 border-red-400">
+                    <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">REPLACE THIS:</p>
+                    <p className="text-sm text-red-800 dark:text-red-200 font-mono whitespace-pre-wrap">
+                      {replacement.currentContent}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded border-l-4 border-green-400">
+                    <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">WITH THIS:</p>
+                    <p className="text-sm text-green-800 dark:text-green-200 font-mono whitespace-pre-wrap">
+                      {replacement.suggestedContent}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded">
+                    <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">O3 REASONING:</p>
+                    <p className="text-sm text-purple-800 dark:text-purple-200">
+                      {replacement.reason}
+                    </p>
+                  </div>
+
+                  {/* Apply button */}
+                  <button
+                    onClick={() => onApplyReplacement(replacement)}
+                    className="mt-2 inline-flex items-center px-3 py-1.5 rounded-md bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium shadow"
+                  >
+                    Apply Replacement
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* O3-Powered Project Highlighting */}
+      {isLoadingProjectHighlight && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🎯 O3 Project Highlighting</h3>
+          <p className="text-gray-500 dark:text-gray-400">Analyzing project portfolio relevance...</p>
+        </div>
+      )}
+      
+      {projectHighlightError && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🎯 O3 Project Highlighting</h3>
+          <div className="text-red-500 p-4 rounded-lg bg-red-50 dark:bg-red-900/20">
+            Error: {projectHighlightError.message}
+          </div>
+        </div>
+      )}
+
+      {projectHighlightData?.projectRecommendations && projectHighlightData.projectRecommendations.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🎯 O3 Project Highlighting</h3>
+          <div className="space-y-4">
+            {projectHighlightData.projectRecommendations.map((project, idx) => (
+              <div key={idx} className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg p-4 shadow-sm border border-emerald-200 dark:border-emerald-700">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="inline-block px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 rounded text-xs font-medium">
+                    O3 Recommended • {project.priority.toUpperCase()} Priority
+                  </span>
+                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                    {project.projectTitle}
+                  </span>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded">
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 mb-1">WHY THIS PROJECT:</p>
+                    <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                      {project.reason}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-teal-50 dark:bg-teal-900/20 p-3 rounded">
+                    <p className="text-xs font-medium text-teal-700 dark:text-teal-300 mb-1">SUGGESTED PLACEMENT:</p>
+                    <p className="text-sm text-teal-800 dark:text-teal-200 font-medium">
+                      {project.suggestedPlacement}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {false && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">💡 General Improvements</h3>
           <ul className="list-none space-y-4">
             {suggestions.map((item, idx) => (
               <li key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -139,16 +308,6 @@ const SuggestionsPanel: React.FC<{
         </div>
       )}
 
-      {relevantProjects.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Relevant Projects</h3>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600 dark:text-gray-400">
-            {relevantProjects.map((project, idx) => (
-              <li key={idx} className="whitespace-pre-wrap">{project}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {skillsToHighlight.length > 0 && (
         <div>
@@ -165,17 +324,6 @@ const SuggestionsPanel: React.FC<{
           </div>
         </div>
       )}
-
-      {experienceToHighlight.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Experience to Highlight</h3>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600 dark:text-gray-400">
-            {experienceToHighlight.map((exp, idx) => (
-              <li key={idx} className="whitespace-pre-wrap">{exp}</li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 };
@@ -183,6 +331,7 @@ const SuggestionsPanel: React.FC<{
 const ResumePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [latexContent, setLatexContent] = useState<string>('');
+  const [appliedReplacementKeys, setAppliedReplacementKeys] = useState<Set<string>>(new Set());
 
   // Fetch job data with error handling
   const { 
@@ -231,6 +380,31 @@ const ResumePage: React.FC = () => {
     }
   }, [baseTemplate, job]);
 
+  // Quick job summary for header
+  const {
+    data: jobSummary,
+    isLoading: isLoadingSummary,
+    error: summaryError
+  } = useQuery<string[], Error>(
+    ['job-summary', id],
+    async () => {
+      console.log('Generating quick job summary for job ID:', id);
+      try {
+        const result = await window.api.generateJobSummary({ jobId: id! });
+        console.log('Job summary result:', result);
+        return result;
+      } catch (error) {
+        console.error('Error in job summary query:', error);
+        throw error;
+      }
+    },
+    {
+      enabled: !!id && !!job,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    }
+  );
+
   // RAG-powered suggestions with detailed logging
   const {
     data: improvementData,
@@ -243,7 +417,7 @@ const ResumePage: React.FC = () => {
       try {
         const result = await window.api.generateResumeSuggestions(id!);
         console.log('RAG suggestions result:', result);
-        return result;
+        return result as ResumeImprovementResponse;
       } catch (error) {
         console.error('Error in RAG suggestions query:', error);
         throw error;
@@ -255,6 +429,62 @@ const ResumePage: React.FC = () => {
       retry: 1,
     }
   );
+
+  // O3-powered experience rewriting
+  const {
+    data: experienceRewriteData,
+    isLoading: isLoadingExperienceRewrite,
+    error: experienceRewriteError
+  } = useQuery<ExperienceItemRewriteResponse, Error>(
+    ['experience-rewrite', id],
+    async () => {
+      console.log('Starting O3 experience rewrite for job ID:', id);
+      try {
+        const result = await window.api.rewriteExperienceItems(id!);
+        console.log('O3 experience rewrite result:', result);
+        return result as ExperienceItemRewriteResponse;
+      } catch (error) {
+        console.error('Error in O3 experience rewrite query:', error);
+        throw error;
+      }
+    },
+    {
+      enabled: !!id && !!job,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    }
+  );
+
+  // O3-powered project highlighting
+  const {
+    data: projectHighlightData,
+    isLoading: isLoadingProjectHighlight,
+    error: projectHighlightError
+  } = useQuery<ProjectHighlightResponse, Error>(
+    ['project-highlight', id],
+    async () => {
+      console.log('Starting O3 project highlighting for job ID:', id);
+      try {
+        const result = await window.api.highlightRelevantProjects(id!);
+        console.log('O3 project highlighting result:', result);
+        return result as ProjectHighlightResponse;
+      } catch (error) {
+        console.error('Error in O3 project highlighting query:', error);
+        throw error;
+      }
+    },
+    {
+      enabled: !!id && !!job,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    }
+  );
+
+  // Apply replacement from O3 suggestions
+  const handleApplyReplacement = (rep: ReplacementSuggestion) => {
+    setLatexContent(prev => prev.replace(rep.currentContent, rep.suggestedContent));
+    setAppliedReplacementKeys(prev => new Set(prev).add(rep.currentContent));
+  };
 
   const handleOpenOverleaf = () => {
     if (!id) return;
@@ -288,23 +518,42 @@ const ResumePage: React.FC = () => {
       <ErrorBoundary>
         {/* Header with job info */}
         <header className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            {job.title}
-            {job.url && (
-              <a 
-                href={job.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-              >
-                (View Posting)
-              </a>
+          <div className="flex justify-between items-start mb-3">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {job.title}
+              {job.url && (
+                <a 
+                  href={job.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                >
+                  (View Posting)
+                </a>
+              )}
+            </h1>
+            <StatusTracker 
+              jobId={job.id} 
+              currentStatus={job.status} 
+              showLabel={false}
+              className="flex-shrink-0"
+            />
+          </div>
+          <div className="text-gray-600 dark:text-gray-300">
+            {isLoadingSummary ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Analyzing job highlights...</p>
+            ) : summaryError ? (
+              <p className="text-sm text-red-500">Failed to generate summary</p>
+            ) : (
+              <ul className="text-sm space-y-1">
+                {(jobSummary || []).filter(point => point.trim().length > 0).map((point, index) => (
+                  <li key={index} className="flex items-start">
+                    <span className="text-blue-500 dark:text-blue-400 mr-2 flex-shrink-0">•</span>
+                    <span className="leading-relaxed">{point}</span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </h1>
-          <div className="text-gray-600 dark:text-gray-300 space-y-1">
-            <p className="font-medium">{job.company}</p>
-            <p>{job.location}</p>
-            {job.salary && <p>Salary: {job.salary}</p>}
           </div>
         </header>
 
@@ -344,6 +593,14 @@ const ResumePage: React.FC = () => {
                   isLoading={isLoadingSuggestions}
                   error={suggestionsError}
                   data={improvementData}
+                  experienceRewriteData={experienceRewriteData}
+                  isLoadingExperienceRewrite={isLoadingExperienceRewrite}
+                  experienceRewriteError={experienceRewriteError}
+                  projectHighlightData={projectHighlightData}
+                  isLoadingProjectHighlight={isLoadingProjectHighlight}
+                  projectHighlightError={projectHighlightError}
+                  onApplyReplacement={handleApplyReplacement}
+                  hiddenReplacementKeys={appliedReplacementKeys}
                 />
               </ErrorBoundary>
             </div>

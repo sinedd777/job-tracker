@@ -36,7 +36,10 @@ contextBridge.exposeInMainWorld(
     // Resume operations
     readResumeTemplate: () => ipcRenderer.invoke('read-resume-template'),
     saveAndOpenResume: (jobId: string, content: string) => ipcRenderer.invoke('save-and-open-resume', jobId, content),
-    generateResumeSuggestions: (jobId: string) => ipcRenderer.invoke('generate-resume-suggestions', { jobId }),
+    generateResumeSuggestions: (jobId: string) => ipcRenderer.invoke('generate-resume-suggestions', jobId),
+  rewriteExperienceItems: (jobId: string) => ipcRenderer.invoke('rewrite-experience-items', jobId),
+  highlightRelevantProjects: (jobId: string) => ipcRenderer.invoke('highlight-relevant-projects', jobId),
+    generateJobSummary: (args: { jobId: string }) => ipcRenderer.invoke('generate-job-summary', args),
     updateRagVectorStore: () => ipcRenderer.invoke('update-rag-vector-store'),
 
     // GitHub operations (read-only)

@@ -31,11 +31,36 @@ export interface IElectronAPI {
   readResumeTemplate: () => Promise<string>;
   saveAndOpenResume: (jobId: string, content: string) => Promise<void>;
   generateResumeSuggestions: (jobId: string) => Promise<{
+    replacements: Array<{
+      sectionName: string;
+      currentContent: string;
+      suggestedContent: string;
+      reason: string;
+      lineNumbers?: string;
+    }>;
     suggestions: string[];
     relevantProjects: string[];
     skillsToHighlight: string[];
     experienceToHighlight: string[];
   }>;
+  rewriteExperienceItems: (jobId: string) => Promise<{
+    experienceReplacements: Array<{
+      sectionName: string;
+      currentContent: string;
+      suggestedContent: string;
+      reason: string;
+      lineNumbers?: string;
+    }>;
+  }>;
+  highlightRelevantProjects: (jobId: string) => Promise<{
+    projectRecommendations: Array<{
+      projectTitle: string;
+      reason: string;
+      priority: 'high' | 'medium' | 'low';
+      suggestedPlacement: string;
+    }>;
+  }>;
+  generateJobSummary: (args: { jobId: string }) => Promise<string[]>;
   updateRagVectorStore: () => Promise<void>;
 
   // GitHub operations (read-only)
