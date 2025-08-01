@@ -60,6 +60,8 @@ export interface IElectronAPI {
       suggestedPlacement: string;
     }>;
   }>;
+  listResumes: () => Promise<Array<{ jobId: string; fileName: string; modifiedTime: string }>>;
+  listEmails: () => Promise<Array<{ jobId: string; fileName: string; modifiedTime: string }>>;
   generateJobSummary: (args: { jobId: string }) => Promise<string[]>;
   updateRagVectorStore: () => Promise<void>;
 

@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld(
     generateResumeSuggestions: (jobId: string) => ipcRenderer.invoke('generate-resume-suggestions', jobId),
   rewriteExperienceItems: (jobId: string) => ipcRenderer.invoke('rewrite-experience-items', jobId),
   highlightRelevantProjects: (jobId: string) => ipcRenderer.invoke('highlight-relevant-projects', jobId),
+  listResumes: () => ipcRenderer.invoke('list-resumes'),
+  listEmails: () => ipcRenderer.invoke('list-emails'),
     generateJobSummary: (args: { jobId: string }) => ipcRenderer.invoke('generate-job-summary', args),
     updateRagVectorStore: () => ipcRenderer.invoke('update-rag-vector-store'),
 

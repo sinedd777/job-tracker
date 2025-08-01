@@ -3,7 +3,9 @@ import DashboardPage from './pages/DashboardPage';
 import JobDetailPage from './pages/JobDetailPage';
 import Layout from './components/Layout';
 import ResumePage from './pages/ResumePage';
+import ResumesListPage from './pages/ResumesListPage';
 import MailPage from './pages/MailPage';
+import EmailsListPage from './pages/EmailsListPage';
 import EmailPage from './pages/EmailPage';
 import HistoricalPage from './pages/HistoricalPage';
 
@@ -14,11 +16,11 @@ const App = () => {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/historical" element={<HistoricalPage />} />
         <Route path="/job/:id" element={<JobDetailPage />} />
-        <Route path="/resume" element={<ResumePage />} />
+        <Route path="/resume" element={<ResumesListPage />} />
         <Route path="/resume/:id" element={<ResumePage />} />
         <Route path="/mail" element={<MailPage />} />
         <Route path="/mail/:id" element={<MailPage />} />
-        <Route path="/email" element={<EmailPage />} />
+        <Route path="/email" element={<EmailsListPage />} />
         <Route path="/email/:id" element={<EmailPage />} />
       </Routes>
     </Layout>

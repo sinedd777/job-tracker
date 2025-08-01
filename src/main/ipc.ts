@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { jobsDataService } from './services/jobsData';
 import db from '../database';
-import { writeFileSync, readFileSync } from 'fs';
+import { writeFileSync, readFileSync, readdirSync, statSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { shell } from 'electron';
 import { createServer, Server } from 'http';
@@ -171,6 +171,45 @@ ipcMain.handle('save-and-open-resume', (_event, jobId: string, content: string) 
   }
 });
 
+// List all generated resumes
+ipcMain.handle('list-resumes', () => {
+  try {
+    const dirPath = join(process.cwd(), 'resumes');
+    const files = readdirSync(dirPath);
+    return files
+      .filter((f) => f.startsWith('job-') && f.endsWith('.tex'))
+      .map((f) => {
+        const jobId = f.replace(/^job-/, '').replace(/\.tex$/, '');
+        const stats = statSync(join(dirPath, f));
+        return { jobId, fileName: f, modifiedTime: stats.mtime };
+      })
+      .sort((a, b) => (b.modifiedTime as any) - (a.modifiedTime as any));
+  } catch (error) {
+    console.error('Failed to list resumes:', error);
+    return [];
+  }
+});
+
+// List all generated cold emails
+ipcMain.handle('list-emails', () => {
+  try {
+    const dirPath = join(process.cwd(), 'emails');
+    if (!existsSync(dirPath)) return [];
+    const files = readdirSync(dirPath);
+    return files
+      .filter((f) => f.startsWith('job-') && f.endsWith('.txt'))
+      .map((f) => {
+        const jobId = f.replace(/^job-/, '').replace(/\.txt$/, '');
+        const stats = statSync(join(dirPath, f));
+        return { jobId, fileName: f, modifiedTime: stats.mtime };
+      })
+      .sort((a, b) => (b.modifiedTime as any) - (a.modifiedTime as any));
+  } catch (error) {
+    console.error('Failed to list cold emails:', error);
+    return [];
+  }
+});
+
 // Generate cold email using OpenAI
 ipcMain.handle('generate-cold-email', async (_event, args: { jobId: string; model?: string }) => {
   const { jobId, model = 'gpt-4o' } = args;
@@ -210,7 +249,18 @@ ipcMain.handle('generate-cold-email', async (_event, args: { jobId: string; mode
 
     const jobDescriptionSummary = (job as any).description || (job as any).summary || '';
 
-    const prompt = `You are a cold email writing assistant trained to write concise, human-sounding, and highly personalized outreach emails for job seekers. Your tone should be warm, curious, and professionally confident — not salesy or robotic.
+    const fewShotExamples = `Example 1:\nHi Sarah,\n\nLove the way Atlassian tackles developer pain points—your recent article on modular monorepos hit home. I’ve spent three years streamlining CI/CD pipelines for 200+ engineers and would enjoy swapping ideas. Open to a brief chat?\n\nBest,\nGaurang\n+1 602 312 3249\n\nExample 2:\nHey Daniel,\n\nI’ve followed NVIDIA’s compiler team since the NVCC 12 release. After building GPU-focused test frameworks at LetsTransport, I’m keen to contribute to your graphics verification effort. Got 15 minutes to connect?\n\nCheers,\nGaurang\n+1 602 312 3249`;
+
+    const promptContext = `Job Title: ${job.title}
+Company: ${job.company}
+Job Description Summary: ${jobDescriptionSummary}
+Recruiter Name (if any): ${recruiterName}
+My Education: ${educationSummary}
+My Projects: ${projectSummary}
+My Experience: ${experienceSummary}
+My Skills: ${skillsSummary}`;
+
+const taskInstruction = `Using the context above, write a fresh cold email that mirrors the style and length of the two examples. Limit to 90–100 words, conversational tone, no placeholders, no bullet points. Plain text only.`;
 
 ✦ GOAL:
 Write a cold email for a job opportunity that highlights the user's background and demonstrates how they can add value to this specific role.
@@ -240,7 +290,7 @@ My Experience: ${experienceSummary}
 My Skills: ${skillsSummary}
 
 ✦ OUTPUT:
-Return only the final cold email in plain text. No explanations, no bullet points, no notes. Personal, professional, and specific.`;
+Return only the final cold email in plain text. No explanations, no bullet points, no notes. Personal, professional, and specific.`; */
 
     // 4. Call OpenAI Chat Completion
     const apiKey = process.env.OPENAI_API_KEY;
@@ -277,7 +327,32 @@ Return only the final cold email in plain text. No explanations, no bullet point
       throw new Error('No email content returned from OpenAI');
     }
 
-    return emailContent;
+    // Post-process to ensure proper signature and remove placeholders
+    let finalEmail = emailContent
+      .replace(/\[Your Name\]/gi, 'Gaurang')
+      .replace(/\[Your LinkedIn Profile\]/gi, '')
+      .replace(/\[Your Contact Information\]/gi, '+1 602 312 3249')
+      .replace(/\[.*?\]/g, '') // remove any other bracket placeholders
+      .trim();
+
+    // If signature missing, append preferred signature
+    if (!/Gaurang/i.test(finalEmail)) {
+      finalEmail += '\n\nBest,\nGaurang\n+1 602 312 3249';
+    }
+
+    // Persist the generated email to disk for future reference
+    try {
+      const emailsDir = join(process.cwd(), 'emails');
+      if (!existsSync(emailsDir)) {
+        mkdirSync(emailsDir, { recursive: true });
+      }
+      const filePath = join(emailsDir, `job-${jobId}.txt`);
+      writeFileSync(filePath, finalEmail, 'utf-8');
+    } catch (fsErr) {
+      console.error('Failed to save cold email to disk:', fsErr);
+    }
+
+    return finalEmail;
   } catch (err) {
     console.error('Failed to generate cold email:', err);
     throw err;

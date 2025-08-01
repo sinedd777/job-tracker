@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import StatusTracker from '../components/StatusTracker';
 
@@ -516,21 +516,23 @@ const ResumePage: React.FC = () => {
   return (
     <div className="flex flex-col h-full p-4 space-y-4">
       <ErrorBoundary>
+        {/* Navigation */}
+        <div className="flex items-center gap-3 mb-3">
+          <Link 
+            to={`/job/${job.id}`}
+            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-150 gap-1.5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Job
+          </Link>
+        </div>
         {/* Header with job info */}
         <header className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
           <div className="flex justify-between items-start mb-3">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               {job.title}
-              {job.url && (
-                <a 
-                  href={job.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-                >
-                  (View Posting)
-                </a>
-              )}
             </h1>
             <StatusTracker 
               jobId={job.id} 
