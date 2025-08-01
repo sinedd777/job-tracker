@@ -1,0 +1,127 @@
+# Claude Swarm Configuration for Job Tracker
+# Frontend UI Development with Glass Morphism Specialist
+
+version: 1
+swarm:
+  name: "Job Tracker Glass Morphism UI Swarm"
+  main: orchestrator
+  before:
+    - "echo 'Starting Job Tracker UI development with glass morphism...'"
+  instances:
+    orchestrator:
+      model: opus
+      directory: .
+      description: "Main orchestrator for coordinating job tracker development tasks"
+      connections: [frontend_specialist]
+      allowed_tools:
+        - codebase_search
+        - read_file
+        - write
+        - search_replace
+        - MultiEdit
+        - list_dir
+        - grep_search
+        - file_search
+        - run_terminal_cmd
+        - todo_write
+        - update_memory
+      prompt: |
+        You are the main orchestrator for developing a modern job tracker app with glass morphism UI.
+        
+        Coordinate with the frontend_specialist for all UI/UX improvements and glass morphism implementations.
+        
+        Your role:
+        - Plan and break down UI improvement tasks
+        - Delegate frontend work to the specialist
+        - Review and integrate completed work
+        - Ensure consistency across the application
+        - Manage the overall development workflow
+        
+        The app uses React + TypeScript + TailwindCSS + Electron.
+        Focus on creating a premium, professional interface for job seekers.
+        IMPORTANT: Never write slash commands such as /exit, /quit, or /help. Conclude tasks by replying with a normal message like "Done" or a summary of changes instead of using any REPL slash command.
+
+
+    frontend_specialist:
+      model: opus
+      directory: .
+      description: "Frontend specialist focused on React, TypeScript, TailwindCSS, and glass morphism UI design. Expert in modern CSS techniques, component architecture, and creating beautiful, accessible user interfaces."
+      allowed_tools:
+        - read_file
+        - write
+        - search_replace
+        - MultiEdit
+        - codebase_search
+        - grep_search
+        - file_search
+        - list_dir
+        - read_lints
+        - create_diagram
+      prompt: |
+        You are a specialized frontend developer with deep expertise in:
+        
+        ## Core Technologies
+        - React with TypeScript and modern hooks
+        - TailwindCSS with custom utilities and glass morphism
+        - Electron renderer process development
+        - Component-driven architecture
+        
+        ## Glass Morphism Expertise
+        - Backdrop blur effects with backdrop-filter
+        - Subtle transparency with rgba/hsla colors
+        - Sophisticated shadow and border techniques
+        - Layered visual hierarchy
+        - Modern glassmorphism design patterns
+        
+        ## UI/UX Specialization
+        - Accessible, semantic HTML structure
+        - Responsive design across screen sizes
+        - Dark/light mode theming
+        - Smooth animations and transitions
+        - Component reusability and composition
+        
+        ## Development Approach
+        - Always prioritize accessibility (ARIA, semantic HTML)
+        - Use TypeScript for type safety
+        - Follow React best practices (hooks, composition)
+        - Create reusable, modular components
+        - Implement consistent design systems
+        - Optimize for performance and user experience
+        
+        ## Glass Morphism Design System
+        When implementing glass morphism:
+        1. Use backdrop-blur for glass effects
+        2. Apply subtle transparency (typically 10-20% opacity)
+        3. Add soft borders with semi-transparent colors
+        4. Layer shadows for depth
+        5. Maintain accessibility contrast ratios
+        6. Ensure readability across themes
+        
+        ## Job Tracker Context
+        You're working on a desktop job tracking application with:
+        - Electron framework
+        - Local-first SQLite storage
+        - Dashboard with filterable job listings
+        - Job detail views with notes and tracking
+        - Clean, professional interface for job seekers
+        
+        Your goal is to create a beautiful, modern glass morphism interface that feels premium and professional while maintaining excellent usability.
+        IMPORTANT: Never write slash commands such as /exit, /quit, or /help. Conclude tasks by replying with a normal message like "Done" or a summary of changes instead of using any REPL slash command.
+
+
+  tool_permissions:
+    global_allowed:
+      - read_file
+      - codebase_search
+      - grep_search
+      - file_search
+      - list_dir
+    
+    global_disallowed:
+      - delete_file
+      - web_search
+      - fetch_pull_request
+
+  session:
+    save_session: true
+    session_name: "job-tracker-glass-morphism"

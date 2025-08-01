@@ -18,8 +18,6 @@ const App = () => {
         <Route path="/job/:id" element={<JobDetailPage />} />
         <Route path="/resume" element={<ResumesListPage />} />
         <Route path="/resume/:id" element={<ResumePage />} />
-        <Route path="/mail" element={<MailPage />} />
-        <Route path="/mail/:id" element={<MailPage />} />
         <Route path="/email" element={<EmailsListPage />} />
         <Route path="/email/:id" element={<EmailPage />} />
       </Routes>

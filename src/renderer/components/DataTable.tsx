@@ -43,14 +43,14 @@ interface FilterChipProps {
 const FilterChip: React.FC<FilterChipProps> = ({ label, onRemove }) => (
   <span 
     className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full 
-    bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 
-    border border-blue-200/50 dark:border-blue-800/50
-    shadow-sm transition-all duration-150 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700"
+    bg-blue-50 text-blue-600 
+    border border-blue-200/50
+    shadow-sm transition-all duration-150 hover:shadow-md hover:border-blue-300"
   >
     {label}
     <button
       onClick={onRemove}
-      className="group rounded-full p-0.5 hover:bg-blue-100 dark:hover:bg-blue-800/50 
+      className="group rounded-full p-0.5 hover:bg-blue-100 
       transition-colors duration-150"
       aria-label={`Remove ${label} filter`}
     >
@@ -131,13 +131,13 @@ export function DataTable<T>({
                 >
                   <div className="relative">
                     <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                       <Combobox.Input
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 
-                        rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white 
-                        placeholder-gray-400 dark:placeholder-gray-500
-                        focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 
-                        focus:border-blue-500 dark:focus:border-blue-400
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 
+                        rounded-lg bg-white text-gray-900 
+                        placeholder-gray-400
+                        focus:ring-2 focus:ring-blue-500/20 
+                        focus:border-blue-500
                         transition-shadow duration-150"
                         placeholder={`Filter by ${column.id.toLowerCase()}`}
                         onChange={(e) => setSearchQueries(prev => ({
@@ -155,10 +155,10 @@ export function DataTable<T>({
                       afterLeave={() => setSearchQueries(prev => ({ ...prev, [column.id]: '' }))}
                     >
                       <Combobox.Options 
-                        className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 
-                        border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg 
+                        className="absolute z-10 mt-1 w-full bg-white 
+                        border border-gray-200 rounded-lg shadow-lg 
                         max-h-60 overflow-auto focus:outline-none text-sm
-                        divide-y divide-gray-100 dark:divide-gray-700"
+                        divide-y divide-gray-100"
                       >
                         <div className="p-2 space-y-1">
                           {filteredOptions.map((option) => (
@@ -168,8 +168,8 @@ export function DataTable<T>({
                               className={({ active }) =>
                                 `relative cursor-pointer select-none py-2 pl-8 pr-3 rounded-md
                                 ${active
-                                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                  : 'text-gray-900 dark:text-white'
+                                  ? 'bg-blue-50 text-blue-600'
+                                  : 'text-gray-900'
                                 } transition-colors duration-150`
                               }
                             >
@@ -181,7 +181,7 @@ export function DataTable<T>({
                                   {selected && (
                                     <span 
                                       className={`absolute inset-y-0 left-0 flex items-center pl-2
-                                        ${active ? 'text-blue-600 dark:text-blue-400' : 'text-blue-500 dark:text-blue-500'}`}
+                                        ${active ? 'text-blue-600' : 'text-blue-500'}`}
                                     >
                                       <Check className="h-4 w-4" />
                                     </span>
@@ -191,7 +191,7 @@ export function DataTable<T>({
                             </Combobox.Option>
                           ))}
                           {filteredOptions.length === 0 && query !== '' && (
-                            <div className="py-2 px-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+                            <div className="py-2 px-3 text-sm text-gray-500 text-center">
                               No matches found
                             </div>
                           )}
@@ -223,24 +223,24 @@ export function DataTable<T>({
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 
+      <div className="bg-white rounded-lg border border-gray-200 
         shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <table className="min-w-full divide-y divide-gray-200">
             <thead>
               {table.getHeaderGroups().map(headerGroup => (
-                <tr key={headerGroup.id} className="bg-gray-50 dark:bg-gray-800/50">
+                <tr key={headerGroup.id} className="bg-gray-50">
                   {headerGroup.headers.map(header => (
                     <th
                       key={header.id}
-                      className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 
+                      className="px-3 py-3 text-left text-xs font-medium text-gray-500 
                       uppercase tracking-wider"
                     >
                       {header.isPlaceholder ? null : (
                         <div
                           className={`flex items-center gap-1.5 group ${
                             header.column.getCanSort() 
-                              ? 'cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200' 
+                              ? 'cursor-pointer select-none hover:text-gray-700' 
                               : ''
                           }`}
                           onClick={header.column.getToggleSortingHandler()}
@@ -263,12 +263,12 @@ export function DataTable<T>({
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-gray-200">
               {paginatedRows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400"
+                    className="px-3 py-4 text-center text-sm text-gray-500"
                   >
                     No results found
                   </td>
@@ -277,7 +277,7 @@ export function DataTable<T>({
                 paginatedRows.map(row => (
                   <tr 
                     key={row.id} 
-                    className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-150"
+                    className="group hover:bg-gray-50 transition-colors duration-150"
                   >
                     {row.getVisibleCells().map(cell => (
                       <td key={cell.id} className="px-3 py-2">
@@ -291,7 +291,7 @@ export function DataTable<T>({
           </table>
         </div>
         {totalPages > 1 && (
-          <div className="border-t border-gray-200 dark:border-gray-700">
+          <div className="border-t border-gray-200">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}

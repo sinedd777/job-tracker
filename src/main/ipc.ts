@@ -262,6 +262,10 @@ My Skills: ${skillsSummary}`;
 
 const taskInstruction = `Using the context above, write a fresh cold email that mirrors the style and length of the two examples. Limit to 90–100 words, conversational tone, no placeholders, no bullet points. Plain text only.`;
 
+    const prompt = `${fewShotExamples}\n\n${promptContext}\n\n${taskInstruction}`;
+
+    /*
+
 ✦ GOAL:
 Write a cold email for a job opportunity that highlights the user's background and demonstrates how they can add value to this specific role.
 

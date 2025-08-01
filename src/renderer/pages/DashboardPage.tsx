@@ -31,7 +31,7 @@ const ProcessTracker: React.FC<ProcessTrackerProps> = ({ status }) => {
   if (isNew) {
     return (
       <div className="flex items-center gap-1">
-        <span className="text-xs text-green-500 dark:text-green-400 font-medium">New</span>
+        <span className="text-xs text-green-500 font-medium">New</span>
       </div>
     );
   }
@@ -44,9 +44,9 @@ const ProcessTracker: React.FC<ProcessTrackerProps> = ({ status }) => {
             className={`w-1.5 h-1.5 rounded-full transition-colors duration-200 ${
               idx <= highlightUntil
                 ? isRejected
-                  ? 'bg-red-500 dark:bg-red-400'
-                  : 'bg-blue-500 dark:bg-blue-400'
-                : 'bg-gray-200 dark:bg-gray-600'
+                  ? 'bg-red-500'
+                  : 'bg-blue-500'
+                : 'bg-gray-200'
             }`}
           />
           {idx < TRACKER_STEPS.length - 1 && (
@@ -54,9 +54,9 @@ const ProcessTracker: React.FC<ProcessTrackerProps> = ({ status }) => {
               className={`w-4 h-0.5 transition-colors duration-200 ${
                 idx < highlightUntil
                   ? isRejected
-                    ? 'bg-red-500 dark:bg-red-400'
-                    : 'bg-blue-500 dark:bg-blue-400'
-                  : 'bg-gray-200 dark:bg-gray-600'
+                    ? 'bg-red-500'
+                    : 'bg-blue-500'
+                  : 'bg-gray-200'
               }`}
             />
           )}
@@ -145,7 +145,7 @@ const DashboardPage: React.FC = () => {
         <div className="flex items-center max-w-[400px]">
           <Link 
             to={`/job/${row.original.id}`}
-            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-150 truncate"
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors duration-150 truncate"
             title={row.original.title}
           >
             {row.original.title}
@@ -155,7 +155,7 @@ const DashboardPage: React.FC = () => {
               href={row.original.url} 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
+              className="ml-1 text-xs text-gray-400 hover:text-gray-600 flex-shrink-0"
               title="Open job posting"
             >
               (link)
@@ -170,7 +170,7 @@ const DashboardPage: React.FC = () => {
       accessorKey: 'company',
       filterFn: 'array',
       cell: ({ getValue }) => (
-        <div className="whitespace-nowrap text-xs text-gray-900 dark:text-white max-w-[100px] truncate">
+        <div className="whitespace-nowrap text-xs text-gray-900 max-w-[100px] truncate">
           {getValue() as string}
         </div>
       ),
@@ -181,7 +181,7 @@ const DashboardPage: React.FC = () => {
       accessorKey: 'location',
       filterFn: 'array',
       cell: ({ getValue }) => (
-        <div className="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 max-w-[100px] truncate">
+        <div className="whitespace-nowrap text-xs text-gray-500 max-w-[100px] truncate">
           {getValue() as string}
         </div>
       ),
@@ -200,7 +200,7 @@ const DashboardPage: React.FC = () => {
       filterFn: 'array',
       cell: ({ row }) => (
         <select
-          className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-shadow duration-150"
+          className="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-shadow duration-150"
           value={row.original.status}
           onChange={(e) =>
             updateStatusMutation.mutate({ jobId: row.original.id, status: e.target.value })
@@ -224,14 +224,14 @@ const DashboardPage: React.FC = () => {
           <Link 
             to={`/resume/${row.original.id}`} 
             title="Resume Details" 
-            className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-150"
+            className="text-gray-400 hover:text-blue-500 transition-colors duration-150"
           >
             <FileUser className="w-3.5 h-3.5" />
           </Link>
           <Link 
             to={`/email/${row.original.id}`} 
             title="Email Details" 
-            className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-150"
+            className="text-gray-400 hover:text-blue-500 transition-colors duration-150"
           >
             <Mail className="w-3.5 h-3.5" />
           </Link>
@@ -243,7 +243,7 @@ const DashboardPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
+        <div className="flex items-center space-x-2 text-gray-600">
           <RefreshCcw className="w-5 h-5 animate-spin" />
           <span>Loading jobs...</span>
         </div>
@@ -254,7 +254,7 @@ const DashboardPage: React.FC = () => {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-lg">
+        <div className="text-red-500 bg-red-50 px-4 py-2 rounded-lg">
           Error loading jobs
         </div>
       </div>
@@ -262,18 +262,19 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-          New Job Postings
-        </h1>
+    <div className="p-6 space-y-6">
+      <header className="space-y-2">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            New Job Postings
+          </h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowRecentOnly(!showRecentOnly)}
-            className={`inline-flex items-center px-2 py-1 text-xs rounded border shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 gap-1.5 ${
+            className={`inline-flex items-center px-2 py-1 text-xs rounded border shadow-sm hover:bg-gray-50 transition-colors duration-150 gap-1.5 ${
               showRecentOnly 
-                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400' 
-                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                ? 'bg-blue-50 border-blue-200 text-blue-600' 
+                : 'bg-white border-gray-200 text-gray-600'
             }`}
             title={showRecentOnly ? "Showing recent jobs only" : "Show all jobs"}
           >
@@ -282,7 +283,7 @@ const DashboardPage: React.FC = () => {
           </button>
           <button
             onClick={handleRefresh}
-            className="inline-flex items-center px-2 py-1 text-xs rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 gap-1.5 disabled:opacity-50"
+            className="inline-flex items-center px-2 py-1 text-xs rounded bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors duration-150 gap-1.5 disabled:opacity-50"
             disabled={isFetching || syncSupabaseMutation.isLoading}
             title={showRecentOnly ? "Sync recent jobs from Supabase" : "Sync jobs"}
           >
@@ -290,14 +291,17 @@ const DashboardPage: React.FC = () => {
             <span>Sync</span>
           </button>
         </div>
-      </div>
+        </div>
+      </header>
 
-      <DataTable
+      <div className="space-y-4">
+        <DataTable
         data={jobs || []}
         columns={columns}
         itemsPerPage={10}
         enabledFilters={['company', 'location']}
-      />
+        />
+      </div>
     </div>
   );
 };

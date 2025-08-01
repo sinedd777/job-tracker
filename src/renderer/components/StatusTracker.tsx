@@ -14,17 +14,17 @@ interface StatusTrackerProps {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'NEW':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      return 'bg-gray-100 text-gray-800';
     case 'APPLIED':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      return 'bg-blue-100 text-blue-800';
     case 'INTERVIEWING':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      return 'bg-yellow-100 text-yellow-800';
     case 'OFFERED':
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      return 'bg-green-100 text-green-800';
     case 'REJECTED':
-      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      return 'bg-red-100 text-red-800';
     default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      return 'bg-gray-100 text-gray-800';
   }
 };
 
@@ -59,7 +59,7 @@ const StatusTracker: React.FC<StatusTrackerProps> = ({
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {showLabel && (
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <span className="text-sm font-medium text-gray-700">
           Status:
         </span>
       )}
@@ -84,11 +84,11 @@ const StatusTracker: React.FC<StatusTrackerProps> = ({
           ))}
         </select>
         
-        <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-gray-500 dark:text-gray-400" />
+        <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-gray-500" />
       </div>
 
       {updateStatusMutation.isLoading && (
-        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center text-xs text-gray-500">
           <div className="animate-spin rounded-full h-3 w-3 border border-gray-300 border-t-gray-600 mr-1"></div>
           Updating...
         </div>
